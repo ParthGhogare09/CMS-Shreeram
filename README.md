@@ -103,11 +103,3 @@ Follow these steps to run the backend and frontend application locally:
 
 ---
 
-## 🔑 Login Credentials
-
-The application uses standard admin credentials for authentication:
-
-*   **Username**: `admin`
-*   **Password**: `admin123`
-
-*(Note: Auth is verified on login to access the dashboard and client management workflows.)*
