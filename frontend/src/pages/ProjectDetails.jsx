@@ -18,11 +18,15 @@ const ProjectDetails = () => {
   const projectId = id;
   
   const { 
+    materials,
     addProjectLogAction,
+    updateProjectAction,
     deleteWorkerLogAction,
     deleteMaterialUsageAction,
     deleteFinanceAction
   } = useCMS();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentProject, setCurrentProject] = useState({ id: '', name: '', client: '', budget: '', location: '', startDate: '', endDate: '', status: 'Active' });
   const [project, setProject] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +72,23 @@ const ProjectDetails = () => {
 
   const handleAddData = (e) => {
     e.preventDefault();
+
+    if (entryType === 'Material') {
+      const selectedMat = materials.find(m => m.name.toLowerCase() === formData.name.trim().toLowerCase());
+      const stockAvailable = selectedMat ? selectedMat.stock : 0;
+      const requestedQty = Number(formData.quantity) || 0;
+
+      if (!selectedMat || stockAvailable <= 0) {
+        alert(`Material "${formData.name}" is out of stock (Available: 0). Please add stock in Material Management first before logging usage.`);
+        return;
+      }
+
+      if (requestedQty > stockAvailable) {
+        alert(`Insufficient stock for "${formData.name}". Available stock is ${stockAvailable} ${selectedMat.unit}, but you requested ${requestedQty}.`);
+        return;
+      }
+    }
+
     const costNum = Number(formData.cost);
     
     // For Material & Misc, total cost might be quantity * distributionRate
@@ -96,6 +117,23 @@ const ProjectDetails = () => {
         setShowModal(false);
         setFormData({ name: '', role: '', cost: '', quantity: '', unit: 'Units', days: '', date: new Date().toISOString().split('T')[0], amountPaid: '', distributionRate: '' });
       });
+  };
+
+  const handleEditProject = (e) => {
+    e.preventDefault();
+    const updatedProj = {
+      name: currentProject.name,
+      client: currentProject.client,
+      budget: Number(currentProject.budget),
+      location: currentProject.location,
+      startDate: currentProject.startDate,
+      endDate: currentProject.endDate,
+      status: currentProject.status
+    };
+    updateProjectAction(currentProject.id, updatedProj).then(() => {
+      fetchProjectDetails();
+      setShowEditModal(false);
+    });
   };
 
   const laborLogs = logs.filter(l => l.type === 'Labor');
@@ -129,9 +167,26 @@ const ProjectDetails = () => {
           </button>
           <h1 className="page-title">{project.name} <span style={{fontSize:'1rem', color:'#A0A0A0'}}>({project.client})</span></h1>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Add Data
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn btn-secondary" onClick={() => {
+            setCurrentProject({
+              id: project.id || project._id,
+              name: project.name,
+              client: project.client,
+              budget: project.budget,
+              location: project.location || '',
+              startDate: project.startDate || '',
+              endDate: project.endDate || '',
+              status: project.status || 'Active'
+            });
+            setShowEditModal(true);
+          }}>
+            <Edit size={16} /> Edit Project
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={16} /> Add Data
+          </button>
+        </div>
       </div>
 
       <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
@@ -447,6 +502,92 @@ const ProjectDetails = () => {
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Save Entry</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Edit Project Details</h2>
+              <button className="btn-close" onClick={() => setShowEditModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleEditProject} className="modal-form">
+              <div className="form-group">
+                <label>Project Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={currentProject.name} 
+                  onChange={e => setCurrentProject({...currentProject, name: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Client Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={currentProject.client} 
+                  onChange={e => setCurrentProject({...currentProject, client: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Location / Site Address</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={currentProject.location} 
+                  onChange={e => setCurrentProject({...currentProject, location: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Project Status</label>
+                <select 
+                  value={currentProject.status} 
+                  onChange={e => setCurrentProject({...currentProject, status: e.target.value})}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Planning">Planning</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={currentProject.startDate} 
+                    onChange={e => setCurrentProject({...currentProject, startDate: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Expected End Date</label>
+                  <input 
+                    type="date" 
+                    value={currentProject.endDate} 
+                    onChange={e => setCurrentProject({...currentProject, endDate: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Total Budget (₹)</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={currentProject.budget} 
+                  onChange={e => setCurrentProject({...currentProject, budget: e.target.value})} 
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
               </div>
             </form>
           </div>

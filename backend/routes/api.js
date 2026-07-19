@@ -242,6 +242,29 @@ router.post('/projects', async (req, res) => {
   }
 });
 
+router.put('/projects/:id', async (req, res) => {
+  try {
+    const { name, client, budget, location, startDate, endDate, status } = req.body;
+    const project = await Project.findByIdAndUpdate(
+      req.params.id,
+      {
+        name,
+        clientName: client,
+        budget: Number(budget) || 0,
+        location,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        ...(status && { status })
+      },
+      { new: true }
+    );
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    res.json(project);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/projects/:id', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -282,8 +305,12 @@ router.get('/projects/:id', async (req, res) => {
       date: log.date
     }));
 
-    // Fetch Finance Expenses
-    const financeExpenses = await Finance.find({ project: project._id, type: 'Expense' });
+    // Fetch Finance Expenses (exclude Labor and Materials to avoid duplicate logs)
+    const financeExpenses = await Finance.find({ 
+      project: project._id, 
+      type: 'Expense',
+      category: { $nin: ['Labor', 'Materials'] }
+    });
     const mappedOtherLogs = financeExpenses.map(log => ({
       id: log._id,
       projectId: project._id,
@@ -388,6 +415,12 @@ router.post('/projects/:id/logs', async (req, res) => {
       }
 
       const qty = Number(quantity) || 0;
+      if (material.stock <= 0) {
+        return res.status(400).json({ error: `Material '${name}' is out of stock (Available: 0). Please add stock in Material Management before logging usage.` });
+      }
+      if (qty > material.stock) {
+        return res.status(400).json({ error: `Insufficient stock for '${name}'. Available: ${material.stock} ${material.unit}, requested: ${qty}.` });
+      }
       const rate = Number(distributionRate) || 0;
       const finalCost = qty * rate;
 
@@ -758,6 +791,12 @@ router.post('/materials/usage', async (req, res) => {
 
     let matObj = await resolveMaterial(material);
     if (!matObj) return res.status(404).json({ error: 'Material not found' });
+    if (!id && matObj.stock <= 0) {
+      return res.status(400).json({ error: `Material '${matObj.name}' is out of stock (Available: 0 ${matObj.unit}). Please add stock first.` });
+    }
+    if (!id && qty > matObj.stock) {
+      return res.status(400).json({ error: `Insufficient stock for '${matObj.name}'. Available: ${matObj.stock} ${matObj.unit}, requested: ${qty}.` });
+    }
 
     let projObj = await resolveProject(project);
     if (!projObj) return res.status(404).json({ error: 'Project not found' });

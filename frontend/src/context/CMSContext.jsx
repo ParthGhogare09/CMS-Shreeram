@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
-  getProjects, createProject, addProjectLog,
+  getProjects, createProject, updateProject, addProjectLog,
   getWorkers, createWorker, updateWorker,
   getWorkerLogs, createWorkerLog, updateWorkerLog,
   getMaterials, saveMaterial, getMaterialUsage, logMaterialUsage,
@@ -196,6 +196,20 @@ export const CMSProvider = ({ children }) => {
         status: 'Planning'
       };
       addProjectMock(fallbackProj);
+      await fetchData(false);
+    }
+  };
+
+  const updateProjectAction = async (id, projectData) => {
+    try {
+      await updateProject(id, projectData);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend updateProject failed, updating local mock dataset:', err.message);
+      const idx = MOCK_PROJECTS.findIndex(p => (p.id || p._id).toString() === id.toString());
+      if (idx !== -1) {
+        MOCK_PROJECTS[idx] = { ...MOCK_PROJECTS[idx], ...projectData };
+      }
       await fetchData(false);
     }
   };
@@ -534,6 +548,7 @@ export const CMSProvider = ({ children }) => {
       dashboardStats,
       fetchData,
       addProjectAction,
+      updateProjectAction,
       deleteProjectAction,
       addProjectLogAction,
       addWorkerAction,

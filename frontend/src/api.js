@@ -9,6 +9,7 @@ export const getDashboardStats = () => API.get('/dashboard');
 export const getProjects = () => API.get('/projects');
 export const getProjectDetails = (id) => API.get(`/projects/${id}`);
 export const createProject = (projectData) => API.post('/projects', projectData);
+export const updateProject = (id, projectData) => API.put(`/projects/${id}`, projectData);
 export const addProjectLog = (projectId, logData) => API.post(`/projects/${projectId}/logs`, logData);
 
 export const getWorkers = () => API.get('/workers');

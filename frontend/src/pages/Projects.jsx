@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { Plus, X, Trash2, Edit } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
@@ -11,9 +11,12 @@ const formatRupee = (amount) => {
 
 const Projects = () => {
   const navigate = useNavigate();
-  const { projects, addProjectAction, deleteProjectAction, loading } = useCMS();
+  const { projects, addProjectAction, updateProjectAction, deleteProjectAction, loading } = useCMS();
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ name: '', client: '', budget: '', location: '', startDate: '', endDate: '' });
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentProject, setCurrentProject] = useState({ id: '', name: '', client: '', budget: '', location: '', startDate: '', endDate: '', status: 'Active' });
   const [projectSearch, setProjectSearch] = useState('');
 
   const handleAddProject = (e) => {
@@ -29,6 +32,21 @@ const Projects = () => {
     addProjectAction(newProj);
     setShowModal(false);
     setFormData({ name: '', client: '', budget: '', location: '', startDate: '', endDate: '' });
+  };
+
+  const handleEditProject = (e) => {
+    e.preventDefault();
+    const updatedProj = {
+      name: currentProject.name,
+      client: currentProject.client,
+      budget: Number(currentProject.budget),
+      location: currentProject.location,
+      startDate: currentProject.startDate,
+      endDate: currentProject.endDate,
+      status: currentProject.status
+    };
+    updateProjectAction(currentProject.id, updatedProj);
+    setShowEditModal(false);
   };
 
   if (loading) {
@@ -97,6 +115,25 @@ const Projects = () => {
                         onClick={() => navigate(`/projects/${project.id || project._id}`)}
                       >
                         View Details
+                      </button>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => {
+                          setCurrentProject({
+                            id: project.id || project._id,
+                            name: project.name,
+                            client: project.client,
+                            budget: project.budget,
+                            location: project.location || '',
+                            startDate: project.startDate || '',
+                            endDate: project.endDate || '',
+                            status: project.status || 'Active'
+                          });
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <Edit size={14} /> Edit
                       </button>
                       <button 
                         className="btn btn-danger" 
@@ -192,6 +229,92 @@ const Projects = () => {
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Project</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Edit Project</h2>
+              <button className="btn-close" onClick={() => setShowEditModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleEditProject} className="modal-form">
+              <div className="form-group">
+                <label>Project Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={currentProject.name} 
+                  onChange={e => setCurrentProject({...currentProject, name: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Client Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={currentProject.client} 
+                  onChange={e => setCurrentProject({...currentProject, client: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Location / Site Address</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={currentProject.location} 
+                  onChange={e => setCurrentProject({...currentProject, location: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Project Status</label>
+                <select 
+                  value={currentProject.status} 
+                  onChange={e => setCurrentProject({...currentProject, status: e.target.value})}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Planning">Planning</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={currentProject.startDate} 
+                    onChange={e => setCurrentProject({...currentProject, startDate: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Expected End Date</label>
+                  <input 
+                    type="date" 
+                    value={currentProject.endDate} 
+                    onChange={e => setCurrentProject({...currentProject, endDate: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Total Budget (₹)</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={currentProject.budget} 
+                  onChange={e => setCurrentProject({...currentProject, budget: e.target.value})} 
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
               </div>
             </form>
           </div>

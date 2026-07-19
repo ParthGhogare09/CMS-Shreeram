@@ -49,6 +49,19 @@ const Materials = () => {
   const handleSaveUsage = (e) => {
     e.preventDefault();
     const selectedMat = materials.find(m => m.name === currentUsage.material);
+    const requestedQty = Number(currentUsage.quantity) || 0;
+    const stockAvailable = selectedMat ? selectedMat.stock : 0;
+
+    if (!showEditUsage && (!selectedMat || stockAvailable <= 0)) {
+      alert(`Material "${currentUsage.material}" is out of stock (Available: 0). Please add stock first before logging material usage.`);
+      return;
+    }
+
+    if (!showEditUsage && requestedQty > stockAvailable) {
+      alert(`Insufficient stock for "${currentUsage.material}". Available stock is ${stockAvailable} ${selectedMat ? selectedMat.unit : 'units'}, but you requested ${requestedQty}.`);
+      return;
+    }
+
     const unit = currentUsage.unit || (selectedMat ? selectedMat.unit : 'Units');
 
     logMaterialUsageAction({
