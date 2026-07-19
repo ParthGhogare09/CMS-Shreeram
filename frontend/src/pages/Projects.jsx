@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Trash2 } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
@@ -11,7 +11,7 @@ const formatRupee = (amount) => {
 
 const Projects = () => {
   const navigate = useNavigate();
-  const { projects, addProjectAction, loading } = useCMS();
+  const { projects, addProjectAction, deleteProjectAction, loading } = useCMS();
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ name: '', client: '', budget: '', location: '', startDate: '', endDate: '' });
   const [projectSearch, setProjectSearch] = useState('');
@@ -90,13 +90,24 @@ const Projects = () => {
                         {project.status}
                       </span>
                     </td>
-                    <td data-label="Actions">
+                    <td data-label="Actions" style={{ display: 'flex', gap: '0.5rem' }}>
                       <button 
                         className="btn btn-secondary" 
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                         onClick={() => navigate(`/projects/${project.id || project._id}`)}
                       >
                         View Details
+                      </button>
+                      <button 
+                        className="btn btn-danger" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete "${project.name}"? This will delete all logs and finances for this project.`)) {
+                            deleteProjectAction(project.id || project._id);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} /> Delete
                       </button>
                     </td>
                   </tr>

@@ -4,7 +4,9 @@ import {
   getWorkers, createWorker, updateWorker,
   getWorkerLogs, createWorkerLog, updateWorkerLog,
   getMaterials, saveMaterial, getMaterialUsage, logMaterialUsage,
-  getFinances, addIncome, getDashboardStats
+  getFinances, addIncome, getDashboardStats,
+  deleteProject, deleteWorker, deleteWorkerLog,
+  deleteMaterial, deleteMaterialUsage, deleteFinance
 } from '../api';
 import {
   MOCK_PROJECTS, MOCK_WORKERS, MOCK_DAILY_LOGS, MOCK_MATERIALS,
@@ -374,6 +376,152 @@ export const CMSProvider = ({ children }) => {
     }
   };
 
+  const deleteProjectAction = async (id) => {
+    try {
+      await deleteProject(id);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteProject failed, updating local mock dataset:', err.message);
+      const pIdx = MOCK_PROJECTS.findIndex(p => (p.id || p._id).toString() === id.toString());
+      let pName = '';
+      if (pIdx !== -1) {
+        pName = MOCK_PROJECTS[pIdx].name;
+        MOCK_PROJECTS.splice(pIdx, 1);
+      }
+      if (pName) {
+        for (let i = MOCK_DAILY_LOGS.length - 1; i >= 0; i--) {
+          if (MOCK_DAILY_LOGS[i].project === pName) {
+            MOCK_DAILY_LOGS.splice(i, 1);
+          }
+        }
+        for (let i = MOCK_MATERIAL_USAGE.length - 1; i >= 0; i--) {
+          if (MOCK_MATERIAL_USAGE[i].project === pName) {
+            MOCK_MATERIAL_USAGE.splice(i, 1);
+          }
+        }
+        for (let i = MOCK_FINANCES.length - 1; i >= 0; i--) {
+          if (MOCK_FINANCES[i].project === pName) {
+            MOCK_FINANCES.splice(i, 1);
+          }
+        }
+      }
+      await fetchData(false);
+    }
+  };
+
+  const deleteWorkerAction = async (id) => {
+    try {
+      await deleteWorker(id);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteWorker failed, updating local mock dataset:', err.message);
+      const wIdx = MOCK_WORKERS.findIndex(w => (w.id || w._id).toString() === id.toString());
+      let wName = '';
+      if (wIdx !== -1) {
+        wName = MOCK_WORKERS[wIdx].name;
+        MOCK_WORKERS.splice(wIdx, 1);
+      }
+      if (wName) {
+        for (let i = MOCK_DAILY_LOGS.length - 1; i >= 0; i--) {
+          if (MOCK_DAILY_LOGS[i].name === wName) {
+            MOCK_DAILY_LOGS.splice(i, 1);
+          }
+        }
+      }
+      await fetchData(false);
+    }
+  };
+
+  const deleteWorkerLogAction = async (id) => {
+    try {
+      await deleteWorkerLog(id);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteWorkerLog failed, updating local mock dataset:', err.message);
+      const logIdx = MOCK_DAILY_LOGS.findIndex(l => (l.id || l._id).toString() === id.toString());
+      if (logIdx !== -1) {
+        const log = MOCK_DAILY_LOGS[logIdx];
+        const finIdx = MOCK_FINANCES.findIndex(f => 
+          f.project === log.project && 
+          f.date === log.date && 
+          f.category === 'Labor' && 
+          f.amount === log.wage
+        );
+        if (finIdx !== -1) {
+          MOCK_FINANCES.splice(finIdx, 1);
+        }
+        MOCK_DAILY_LOGS.splice(logIdx, 1);
+      }
+      await fetchData(false);
+    }
+  };
+
+  const deleteMaterialAction = async (id) => {
+    try {
+      await deleteMaterial(id);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteMaterial failed, updating local mock dataset:', err.message);
+      const mIdx = MOCK_MATERIALS.findIndex(m => (m.id || m._id).toString() === id.toString());
+      let mName = '';
+      if (mIdx !== -1) {
+        mName = MOCK_MATERIALS[mIdx].name;
+        MOCK_MATERIALS.splice(mIdx, 1);
+      }
+      if (mName) {
+        for (let i = MOCK_MATERIAL_USAGE.length - 1; i >= 0; i--) {
+          if (MOCK_MATERIAL_USAGE[i].material === mName) {
+            MOCK_MATERIAL_USAGE.splice(i, 1);
+          }
+        }
+      }
+      await fetchData(false);
+    }
+  };
+
+  const deleteMaterialUsageAction = async (id) => {
+    try {
+      await deleteMaterialUsage(id);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteMaterialUsage failed, updating local mock dataset:', err.message);
+      const uIdx = MOCK_MATERIAL_USAGE.findIndex(u => (u.id || u._id).toString() === id.toString());
+      if (uIdx !== -1) {
+        const log = MOCK_MATERIAL_USAGE[uIdx];
+        const mat = MOCK_MATERIALS.find(m => m.name === log.material);
+        if (mat) {
+          mat.stock = (mat.stock || 0) + log.quantity;
+        }
+        const cost = log.quantity * log.distributionRate;
+        const finIdx = MOCK_FINANCES.findIndex(f => 
+          f.project === log.project && 
+          f.date === log.date && 
+          f.category === 'Materials' && 
+          f.amount === cost
+        );
+        if (finIdx !== -1) {
+          MOCK_FINANCES.splice(finIdx, 1);
+        }
+        MOCK_MATERIAL_USAGE.splice(uIdx, 1);
+      }
+      await fetchData(false);
+    }
+  };
+
+  const deleteFinanceAction = async (id) => {
+    try {
+      await deleteFinance(id);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteFinance failed, updating local mock dataset:', err.message);
+      const fIdx = MOCK_FINANCES.findIndex(f => (f.id || f._id).toString() === id.toString());
+      if (fIdx !== -1) {
+        MOCK_FINANCES.splice(fIdx, 1);
+      }
+      await fetchData(false);
+    }
+  };
+
   return (
     <CMSContext.Provider value={{
       loading,
@@ -386,14 +534,20 @@ export const CMSProvider = ({ children }) => {
       dashboardStats,
       fetchData,
       addProjectAction,
+      deleteProjectAction,
       addProjectLogAction,
       addWorkerAction,
       updateWorkerAction,
+      deleteWorkerAction,
       addWorkerLogAction,
       updateWorkerLogAction,
+      deleteWorkerLogAction,
       saveMaterialAction,
+      deleteMaterialAction,
       logMaterialUsageAction,
+      deleteMaterialUsageAction,
       addIncomeAction,
+      deleteFinanceAction,
       isAuthenticated,
       loginAction,
       logoutAction

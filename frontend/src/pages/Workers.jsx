@@ -10,7 +10,8 @@ import {
   Briefcase,
   DollarSign,
   UserCheck,
-  Edit
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
@@ -33,8 +34,10 @@ const Workers = () => {
     loading,
     addWorkerAction,
     updateWorkerAction,
+    deleteWorkerAction,
     addWorkerLogAction,
-    updateWorkerLogAction
+    updateWorkerLogAction,
+    deleteWorkerLogAction
   } = useCMS();
   
   // Modals state for Worker
@@ -207,12 +210,23 @@ const Workers = () => {
                       {worker.status}
                     </span>
                   </td>
-                  <td data-label="Actions">
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                     <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
                       setCurrentWorker(worker);
                       setShowEditWorker(true);
                     }}>
                       <Edit size={14} /> Edit
+                    </button>
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to delete worker "${worker.name}"? This will delete all attendance logs for this worker.`)) {
+                          deleteWorkerAction(worker.id || worker._id);
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete
                     </button>
                   </td>
                 </tr>
@@ -309,12 +323,23 @@ const Workers = () => {
                       {log.paymentStatus}
                     </span>
                   </td>
-                  <td data-label="Actions">
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                     <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
                       setCurrentLog({ ...log, amountPaid: getAmountPaid(log) });
                       setShowEditLog(true);
                     }}>
                       <Edit size={14} /> Edit
+                    </button>
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this attendance log?")) {
+                          deleteWorkerLogAction(log.id || log._id);
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete
                     </button>
                   </td>
                 </tr>

@@ -957,4 +957,121 @@ router.post('/finances', async (req, res) => {
   }
 });
 
+// ==========================================
+// 6. DELETE ENDPOINTS
+// ==========================================
+
+// Delete Project (and cascade related logs/finances)
+router.delete('/projects/:id', async (req, res) => {
+  try {
+    const project = await Project.findByIdAndDelete(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    
+    // Cascade delete related records
+    await WorkerLog.deleteMany({ project: req.params.id });
+    await MaterialUsage.deleteMany({ project: req.params.id });
+    await Finance.deleteMany({ project: req.params.id });
+    
+    res.json({ message: 'Project and all related logs/finances deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete Worker (and cascade attendance logs)
+router.delete('/workers/:id', async (req, res) => {
+  try {
+    const worker = await Worker.findByIdAndDelete(req.params.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    
+    // Cascade delete worker logs
+    await WorkerLog.deleteMany({ worker: req.params.id });
+    
+    res.json({ message: 'Worker and all attendance logs deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete Worker Log (Attendance log, also deletes related Labor Finance expense)
+router.delete('/workers/logs/:id', async (req, res) => {
+  try {
+    const log = await WorkerLog.findById(req.params.id).populate('worker');
+    if (!log) return res.status(404).json({ error: 'Attendance log not found' });
+    
+    // Clean up related finance expense if it exists
+    if (log.project && log.worker) {
+      await Finance.deleteOne({
+        project: log.project,
+        date: log.date,
+        category: 'Labor',
+        description: new RegExp(log.worker.name, 'i')
+      });
+    }
+    
+    await log.deleteOne();
+    res.json({ message: 'Attendance log and corresponding finance entry deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete Material (and cascade usage logs)
+router.delete('/materials/:id', async (req, res) => {
+  try {
+    const material = await Material.findByIdAndDelete(req.params.id);
+    if (!material) return res.status(404).json({ error: 'Material not found' });
+    
+    // Cascade delete usage
+    await MaterialUsage.deleteMany({ material: req.params.id });
+    
+    res.json({ message: 'Material and all usage logs deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete Material Usage Log (also adjusts stock and deletes Material Finance expense)
+router.delete('/materials/usage/:id', async (req, res) => {
+  try {
+    const usageLog = await MaterialUsage.findById(req.params.id).populate('material');
+    if (!usageLog) return res.status(404).json({ error: 'Material usage log not found' });
+    
+    // Revert stock level
+    if (usageLog.material) {
+      usageLog.material.stock += usageLog.quantity;
+      await usageLog.material.save();
+    }
+    
+    // Delete corresponding finance expense record
+    if (usageLog.material) {
+      await Finance.deleteOne({
+        project: usageLog.project,
+        date: usageLog.date,
+        category: 'Materials',
+        description: new RegExp(usageLog.material.name, 'i')
+      });
+    }
+    
+    await usageLog.deleteOne();
+    res.json({ message: 'Material usage log deleted and stock/finance adjusted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete Finance Record (Site payment/Income or other manual expense)
+router.delete('/finances/:id', async (req, res) => {
+  try {
+    const record = await Finance.findByIdAndDelete(req.params.id);
+    if (!record) return res.status(404).json({ error: 'Finance record not found' });
+    res.json({ message: 'Finance record deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
+
+
+

@@ -26,4 +26,11 @@ export const logMaterialUsage = (usageData) => API.post('/materials/usage', usag
 export const getFinances = () => API.get('/finances');
 export const addIncome = (incomeData) => API.post('/finances', incomeData);
 
+export const deleteProject = (id) => API.delete(`/projects/${id}`);
+export const deleteWorker = (id) => API.delete(`/workers/${id}`);
+export const deleteWorkerLog = (id) => API.delete(`/workers/logs/${id}`);
+export const deleteMaterial = (id) => API.delete(`/materials/${id}`);
+export const deleteMaterialUsage = (id) => API.delete(`/materials/usage/${id}`);
+export const deleteFinance = (id) => API.delete(`/finances/${id}`);
+
 export default API;

@@ -576,6 +576,21 @@ td {
   transform: translateY(-2px);
 }
 
+.btn-danger {
+  background: linear-gradient(135deg, var(--color-danger), #dc2626);
+  color: #fff;
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:active {
+  transform: translateY(0);
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;

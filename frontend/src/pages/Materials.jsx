@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Truck, Plus, X, Edit } from 'lucide-react';
+import { Package, Truck, Plus, X, Edit, Trash2 } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -12,7 +12,9 @@ const Materials = () => {
     projects,
     loading,
     saveMaterialAction,
-    logMaterialUsageAction
+    deleteMaterialAction,
+    logMaterialUsageAction,
+    deleteMaterialUsageAction
   } = useCMS();
 
   // Modals state
@@ -135,12 +137,23 @@ const Materials = () => {
                     <td data-label="Unit">{mat.unit}</td>
                     <td data-label="Purchase Rate">₹{mat.purchaseAmount?.toLocaleString('en-IN') || 0}</td>
                     <td data-label="Total Purchase Amount" style={{ fontWeight: 600 }}>₹{((mat.stock || 0) * (mat.purchaseAmount || 0)).toLocaleString('en-IN')}</td>
-                    <td data-label="Actions">
+                    <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                       <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
                         setCurrentMaterial(mat);
                         setShowEditMaterial(true);
                       }}>
                         <Edit size={14} /> Edit
+                      </button>
+                      <button 
+                        className="btn btn-danger" 
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete material "${mat.name}"? This will delete all usage logs for this material.`)) {
+                            deleteMaterialAction(mat.id || mat._id);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} /> Delete
                       </button>
                     </td>
                   </tr>
@@ -192,12 +205,23 @@ const Materials = () => {
                   <td data-label="Distribution Rate">₹{log.distributionRate?.toLocaleString('en-IN') || 0}</td>
                   <td data-label="Total Distributed Amount" style={{ fontWeight: 600 }}>₹{((log.quantity || 0) * (log.distributionRate || 0)).toLocaleString('en-IN')}</td>
                   <td data-label="Date">{formatDate(log.date)}</td>
-                  <td data-label="Actions">
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                     <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
                       setCurrentUsage(log);
                       setShowEditUsage(true);
                     }}>
                       <Edit size={14} /> Edit
+                    </button>
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this material usage log? The stock level and finances will be adjusted back.")) {
+                          deleteMaterialUsageAction(log.id || log._id);
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete
                     </button>
                   </td>
                 </tr>

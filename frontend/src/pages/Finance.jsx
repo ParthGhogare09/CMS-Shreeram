@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DollarSign, Plus, X, ArrowUpRight, CheckCircle, Clock } from 'lucide-react';
+import { DollarSign, Plus, X, ArrowUpRight, CheckCircle, Clock, Trash2 } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -14,7 +14,8 @@ const Finance = () => {
     finances,
     projects,
     loading,
-    addIncomeAction
+    addIncomeAction,
+    deleteFinanceAction
   } = useCMS();
 
   const { incomes = [], stats = {}, labourStats = [], materialStats = [] } = finances;
@@ -124,11 +125,12 @@ const Finance = () => {
                 <th>Site / Project</th>
                 <th>Payment Type</th>
                 <th>Amount Received (₹)</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredIncomes.map((inc) => (
-                <tr key={inc.id}>
+                <tr key={inc.id || inc._id}>
                   <td data-label="Date">{formatDate(inc.date)}</td>
                   <td data-label="Site" style={{ fontWeight: 600 }}>{inc.project}</td>
                   <td data-label="Payment Type">
@@ -141,10 +143,23 @@ const Finance = () => {
                       <ArrowUpRight size={16} /> {formatRupee(inc.amount)}
                     </div>
                   </td>
+                  <td data-label="Actions">
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this incoming payment record?")) {
+                          deleteFinanceAction(inc.id || inc._id);
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filteredIncomes.length === 0 && (
-                <tr><td colSpan="4" style={{textAlign: 'center', padding: '1rem'}}>No incoming payments found matching search query.</td></tr>
+                <tr><td colSpan="5" style={{textAlign: 'center', padding: '1rem'}}>No incoming payments found matching search query.</td></tr>
               )}
             </tbody>
           </table>

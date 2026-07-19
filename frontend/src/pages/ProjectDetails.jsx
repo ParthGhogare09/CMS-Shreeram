@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, Edit } from 'lucide-react';
+import { ArrowLeft, Plus, X, Edit, Trash2 } from 'lucide-react';
 import { getProjectDetails } from '../api';
 import { useCMS } from '../context/CMSContext';
 import { MOCK_PROJECTS, PROJECT_LOGS } from '../mockData';
@@ -17,7 +17,12 @@ const ProjectDetails = () => {
   const navigate = useNavigate();
   const projectId = id;
   
-  const { addProjectLogAction } = useCMS();
+  const { 
+    addProjectLogAction,
+    deleteWorkerLogAction,
+    deleteMaterialUsageAction,
+    deleteFinanceAction
+  } = useCMS();
   const [project, setProject] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,9 +224,20 @@ const ProjectDetails = () => {
                           {status}
                         </span>
                       </td>
-                      <td data-label="Actions">
+                      <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                         <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}>
                           <Edit size={14} /> Edit
+                        </button>
+                        <button 
+                          className="btn btn-danger" 
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => {
+                            if (window.confirm("Are you sure you want to delete this labor entry?")) {
+                              deleteWorkerLogAction(log.id || log._id).then(() => fetchProjectDetails());
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} /> Delete
                         </button>
                       </td>
                     </tr>
@@ -278,9 +294,24 @@ const ProjectDetails = () => {
                       <td data-label="Distribution Rate">{formatRupee(rate)}</td>
                       <td data-label="Total Distributed Amount" className="text-danger" style={{ fontWeight: 600 }}>{formatRupee(log.cost)}</td>
                       <td data-label="Date of Distribution">{formatDate(log.date)}</td>
-                      <td data-label="Actions">
+                      <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                         <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}>
                           <Edit size={14} /> Edit
+                        </button>
+                        <button 
+                          className="btn btn-danger" 
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete this ${log.type.toLowerCase()} entry?`)) {
+                              const action = log.type === 'Material' 
+                                ? deleteMaterialUsageAction(log.id || log._id) 
+                                : deleteFinanceAction(log.id || log._id);
+                              
+                              action.then(() => fetchProjectDetails());
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} /> Delete
                         </button>
                       </td>
                     </tr>
