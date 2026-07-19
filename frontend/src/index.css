@@ -373,6 +373,11 @@ ul {
   box-shadow: var(--shadow-hover);
 }
 
+.card:has(table):hover,
+.card:has(.table-container):hover {
+  transform: none;
+}
+
 .card:hover::after {
   opacity: 1;
 }
@@ -479,7 +484,6 @@ tr {
 
 tbody tr:hover {
   background-color: #f1f5f9;
-  transform: scale(1.002);
   box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.1);
 }
 
