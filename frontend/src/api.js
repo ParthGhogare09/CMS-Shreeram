@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'https://cms-shreeram.onrender.com'
+  baseURL: 'https://cms-shreeram.onrender.com/api'
 });
 
 export const getDashboardStats = () => API.get('/dashboard');
