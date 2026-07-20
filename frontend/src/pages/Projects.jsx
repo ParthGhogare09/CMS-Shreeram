@@ -36,66 +36,12 @@ const Projects = () => {
 
   return (
     <div className="projects-container">
-      <div className="page-header" style={{ marginBottom: '1.25rem' }}>
+      <div className="page-header" style={{ marginBottom: '1rem' }}>
         <h1 className="page-title">Manage Sites / Projects</h1>
-        <div className="action-toolbar">
-          <div style={{ width: '200px' }}>
-            <SearchWithSuggestions 
-              value={projectSearch}
-              onChange={setProjectSearch}
-              placeholder="Search project..."
-              suggestions={projects.map(p => p.name)}
-            />
-          </div>
-          <div className="action-toolbar-buttons">
-            <button 
-              className={`btn btn-secondary ${statusFilter !== 'All' ? 'btn-filter-active' : ''}`} 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => setShowFilterModal(true)}
-            >
-              <Filter size={14} /> Filter
-              {statusFilter !== 'All' && <span className="filter-badge-dot" />}
-            </button>
-            {statusFilter !== 'All' && (
-              <button 
-                className="btn btn-secondary text-danger" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                onClick={() => setStatusFilter('All')}
-                title="Reset Filters"
-              >
-                <RotateCcw size={13} /> Reset
-              </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredProjects.map(p => ({
-                  'Project ID': p.id || p._id,
-                  'Project Name': p.name,
-                  'Client Name': p.client,
-                  'Location': p.location || '-',
-                  'Total Budget (₹)': p.budget,
-                  'Amount Collected (₹)': p.collected || 0,
-                  'Amount Spent (₹)': p.spent || 0,
-                  'Status': p.status || 'Active',
-                  'Start Date': p.startDate || '-',
-                  'End Date': p.endDate || '-'
-                }));
-                exportToExcel(exportData, 'Projects_Report');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-              <Plus size={16} /> New Project
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+      <div className="dashboard-grid" style={{ marginBottom: '1.25rem' }}>
         <div className="summary-card" style={{ backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
           <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-info-bg)', color: 'var(--color-info)' }}>
             <Briefcase size={22} />
@@ -153,6 +99,63 @@ const Projects = () => {
       </FilterModal>
 
       <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <h3 style={{ margin: 0 }}>All Site Projects</h3>
+          <div className="action-toolbar">
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={projectSearch}
+                onChange={setProjectSearch}
+                placeholder="Search project..."
+                suggestions={projects.map(p => p.name)}
+              />
+            </div>
+            <div className="action-toolbar-buttons">
+              <button 
+                className={`btn btn-secondary ${statusFilter !== 'All' ? 'btn-filter-active' : ''}`} 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowFilterModal(true)}
+              >
+                <Filter size={14} /> Filter
+                {statusFilter !== 'All' && <span className="filter-badge-dot" />}
+              </button>
+              {statusFilter !== 'All' && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => setStatusFilter('All')}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredProjects.map(p => ({
+                    'Project ID': p.id || p._id,
+                    'Project Name': p.name,
+                    'Client Name': p.client,
+                    'Location': p.location || '-',
+                    'Total Budget (₹)': p.budget,
+                    'Amount Collected (₹)': p.collected || 0,
+                    'Amount Spent (₹)': p.spent || 0,
+                    'Status': p.status || 'Active',
+                    'Start Date': p.startDate || '-',
+                    'End Date': p.endDate || '-'
+                  }));
+                  exportToExcel(exportData, 'Projects_Report');
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                <Plus size={16} /> New Project
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="table-container">
           <table>
             <thead>
