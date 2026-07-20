@@ -12,7 +12,8 @@ import {
   UserCheck,
   Edit,
   Trash2,
-  Download
+  Download,
+  RotateCcw
 } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
@@ -223,6 +224,16 @@ const Workers = () => {
               <Filter size={14} /> Filter
               {isMasterFiltered && <span className="filter-badge-dot" />}
             </button>
+            {isMasterFiltered && (
+              <button 
+                className="btn btn-secondary text-danger" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                onClick={() => { setRoleFilter('All'); setStatusFilter('All'); }}
+                title="Reset Filters"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -367,6 +378,16 @@ const Workers = () => {
               <Filter size={14} /> Filter
               {isLogFiltered && <span className="filter-badge-dot" />}
             </button>
+            {isLogFiltered && (
+              <button 
+                className="btn btn-secondary text-danger" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                onClick={() => { setFilterDate(''); setFilterProject(''); setPaymentStatusFilter('All'); }}
+                title="Reset Filters"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}

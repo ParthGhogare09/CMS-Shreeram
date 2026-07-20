@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Truck, AlertTriangle, Plus, Search, Trash2, Edit, Download, Filter, X } from 'lucide-react';
+import { Package, Truck, AlertTriangle, Plus, Search, Trash2, Edit, Download, Filter, X, RotateCcw } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import { exportToExcel } from '../utils/exportToExcel';
@@ -169,6 +169,16 @@ const Materials = () => {
               <Filter size={14} /> Filter
               {stockStatusFilter !== 'All' && <span className="filter-badge-dot" />}
             </button>
+            {stockStatusFilter !== 'All' && (
+              <button 
+                className="btn btn-secondary text-danger" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                onClick={() => setStockStatusFilter('All')}
+                title="Reset Filters"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -290,6 +300,16 @@ const Materials = () => {
               <Filter size={14} /> Filter
               {usageProjectFilter !== 'All' && <span className="filter-badge-dot" />}
             </button>
+            {usageProjectFilter !== 'All' && (
+              <button 
+                className="btn btn-secondary text-danger" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                onClick={() => setUsageProjectFilter('All')}
+                title="Reset Filters"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}

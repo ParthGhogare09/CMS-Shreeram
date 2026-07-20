@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Trash2, Edit, Download, Filter } from 'lucide-react';
+import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
@@ -55,6 +55,16 @@ const Projects = () => {
             <Filter size={14} /> Filter
             {statusFilter !== 'All' && <span className="filter-badge-dot" />}
           </button>
+          {statusFilter !== 'All' && (
+            <button 
+              className="btn btn-secondary text-danger" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+              onClick={() => setStatusFilter('All')}
+              title="Reset Filters"
+            >
+              <RotateCcw size={13} /> Reset
+            </button>
+          )}
           <button 
             className="btn btn-secondary" 
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}

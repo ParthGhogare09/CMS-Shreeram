@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, Edit, Trash2, Download, Filter } from 'lucide-react';
+import { ArrowLeft, Plus, X, Edit, Trash2, Download, Filter, RotateCcw } from 'lucide-react';
 import { getProjectDetails } from '../api';
 import { useCMS } from '../context/CMSContext';
 import { MOCK_PROJECTS, PROJECT_LOGS } from '../mockData';
@@ -309,6 +309,16 @@ const ProjectDetails = () => {
                 <Filter size={14} /> Filter
                 {laborPaymentFilter !== 'All' && <span className="filter-badge-dot" />}
               </button>
+              {laborPaymentFilter !== 'All' && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => setLaborPaymentFilter('All')}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
               <button 
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}

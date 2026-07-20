@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter } from 'lucide-react';
+import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter, RotateCcw } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -130,6 +130,16 @@ const Finance = () => {
               <Filter size={14} /> Filter
               {paymentTypeFilter !== 'All' && <span className="filter-badge-dot" />}
             </button>
+            {paymentTypeFilter !== 'All' && (
+              <button 
+                className="btn btn-secondary text-danger" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                onClick={() => setPaymentTypeFilter('All')}
+                title="Reset Filters"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
