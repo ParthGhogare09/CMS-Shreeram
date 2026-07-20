@@ -1485,28 +1485,35 @@ td {
     gap: 0.75rem;
   }
   
-  /* 2 cards per row on mobile for Labour Management & summary grids */
-  .dashboard-grid, .labour-dashboard .dashboard-grid {
+  /* 2 cards per row on mobile across ALL MODULES */
+  .dashboard-grid, 
+  .labour-dashboard .dashboard-grid,
+  .projects-container .dashboard-grid,
+  .materials-container .dashboard-grid,
+  .finance-container .dashboard-grid,
+  .project-details .dashboard-grid {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 0.5rem !important;
   }
 
-  .labour-dashboard .summary-card, .dashboard-grid .summary-card {
+  .summary-card, .stat-card {
     padding: 0.75rem 0.5rem !important;
+    margin-bottom: 0 !important;
   }
 
-  .labour-dashboard .summary-icon-box {
+  .summary-icon-box {
     width: 32px !important;
     height: 32px !important;
   }
 
-  .labour-dashboard .summary-title {
+  .summary-title, .stat-card h3 {
     font-size: 0.7rem !important;
+    margin-bottom: 0.2rem !important;
   }
 
-  .labour-dashboard .summary-value {
-    font-size: 1rem !important;
+  .summary-value, .stat-card .value {
+    font-size: 0.95rem !important;
   }
 
   /* Nav pills displayed directly without horizontal scrolling */
@@ -1560,6 +1567,7 @@ td {
     height: 12px !important;
   }
 }
+
 
 
 

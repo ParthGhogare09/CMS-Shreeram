@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw } from 'lucide-react';
+import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw, Briefcase, CheckCircle, IndianRupee } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
@@ -90,6 +90,46 @@ const Projects = () => {
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
               <Plus size={16} /> New Project
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+        <div className="summary-card" style={{ backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-info-bg)', color: 'var(--color-info)' }}>
+            <Briefcase size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Total Projects</h3>
+            <div className="summary-value">{projects.length}</div>
+          </div>
+        </div>
+        <div className="summary-card" style={{ backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
+            <CheckCircle size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Active Sites</h3>
+            <div className="summary-value">{projects.filter(p => p.status === 'Active').length}</div>
+          </div>
+        </div>
+        <div className="summary-card" style={{ backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: '#f3e8ff', color: '#8b5cf6' }}>
+            <IndianRupee size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Total Budget</h3>
+            <div className="summary-value" style={{ color: '#8b5cf6' }}>{formatRupee(projects.reduce((sum, p) => sum + Number(p.budget || 0), 0))}</div>
+          </div>
+        </div>
+        <div className="summary-card" style={{ backgroundColor: '#fffbeb', borderColor: '#fef3c7' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+            <IndianRupee size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Total Spent</h3>
+            <div className="summary-value" style={{ color: 'var(--color-warning)' }}>{formatRupee(projects.reduce((sum, p) => sum + Number(p.spent || 0), 0))}</div>
           </div>
         </div>
       </div>

@@ -221,29 +221,31 @@ const ProjectDetails = () => {
           </button>
           <h1 className="page-title">{project.name} <span style={{fontSize:'1rem', color:'#A0A0A0'}}>({project.client})</span></h1>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => {
-            setCurrentProject({
-              id: project.id || project._id,
-              name: project.name,
-              client: project.client,
-              budget: project.budget,
-              location: project.location || '',
-              startDate: project.startDate || '',
-              endDate: project.endDate || '',
-              status: project.status || 'Active'
-            });
-            setShowEditModal(true);
-          }}>
-            <Edit size={16} /> Edit Project
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Add Data
-          </button>
+        <div className="action-toolbar">
+          <div className="action-toolbar-buttons">
+            <button className="btn btn-secondary" onClick={() => {
+              setCurrentProject({
+                id: project.id || project._id,
+                name: project.name,
+                client: project.client,
+                budget: project.budget,
+                location: project.location || '',
+                startDate: project.startDate || '',
+                endDate: project.endDate || '',
+                status: project.status || 'Active'
+              });
+              setShowEditModal(true);
+            }}>
+              <Edit size={16} /> Edit Project
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={16} /> Add Data
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+      <div className="dashboard-grid">
         <div className="card stat-card" style={{ backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }}>
           <div className="stat-content">
             <h3>Budget</h3>

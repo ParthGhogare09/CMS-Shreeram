@@ -125,27 +125,61 @@ const Materials = () => {
     <div className="materials-container">
       <div className="page-header" style={{ marginBottom: '1.25rem' }}>
         <h1 className="page-title">Material Management</h1>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div style={{ width: '200px' }}>
-            <SearchWithSuggestions 
-              value={materialSearch}
-              onChange={setMaterialSearch}
-              placeholder="Search stock..."
-              suggestions={materials.map(m => m.name)}
-            />
+        <div className="action-toolbar">
+          <div className="action-toolbar-buttons">
+            <button className="btn btn-primary" onClick={() => {
+              setCurrentMaterial({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '' });
+              setShowAddMaterial(true);
+            }}>
+              <Plus size={16} /> Add Stock
+            </button>
+            <button className="btn btn-secondary" onClick={() => {
+              setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+              setShowAddUsage(true);
+            }}>
+              <Truck size={16} /> Log Usage
+            </button>
           </div>
-          <button className="btn btn-primary" onClick={() => {
-            setCurrentMaterial({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '' });
-            setShowAddMaterial(true);
-          }}>
-            <Plus size={16} /> Add Stock
-          </button>
-          <button className="btn btn-secondary" onClick={() => {
-            setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
-            setShowAddUsage(true);
-          }}>
-            <Truck size={16} /> Log Usage
-          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="dashboard-grid">
+        <div className="summary-card" style={{ backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-info-bg)', color: 'var(--color-info)' }}>
+            <Package size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Total Items</h3>
+            <div className="summary-value">{materials.length}</div>
+          </div>
+        </div>
+        <div className="summary-card" style={{ backgroundColor: '#fffbeb', borderColor: '#fef3c7' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+            <AlertTriangle size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Low Stock Alert</h3>
+            <div className="summary-value" style={{ color: 'var(--color-warning)' }}>{materials.filter(m => m.stock > 0 && m.stock < 50).length}</div>
+          </div>
+        </div>
+        <div className="summary-card" style={{ backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
+            <Package size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Stock Value</h3>
+            <div className="summary-value">{formatCurrency(materials.reduce((sum, m) => sum + ((m.stock || 0) * (m.purchaseAmount || 0)), 0))}</div>
+          </div>
+        </div>
+        <div className="summary-card" style={{ backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: '#f3e8ff', color: '#8b5cf6' }}>
+            <Truck size={22} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Distributed Value</h3>
+            <div className="summary-value" style={{ color: '#8b5cf6' }}>{formatCurrency(usageLogs.reduce((sum, u) => sum + (Number(u.distributionRate || 0) * Number(u.quantity || 0)), 0))}</div>
+          </div>
         </div>
       </div>
 
