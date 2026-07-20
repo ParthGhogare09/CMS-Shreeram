@@ -8,6 +8,7 @@ import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import { exportToExcel } from '../utils/exportToExcel';
+import FilterModal from '../components/FilterModal';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -40,10 +41,11 @@ const ProjectDetails = () => {
     amountPaid: '', distributionRate: ''
   });
 
-  // Search states
+  // Search and Filter states
   const [laborSearch, setLaborSearch] = useState('');
   const [materialSearch, setMaterialSearch] = useState('');
   const [laborPaymentFilter, setLaborPaymentFilter] = useState('All');
+  const [showLaborFilterModal, setShowLaborFilterModal] = useState(false);
 
   const fetchProjectDetails = () => {
     getProjectDetails(projectId)
@@ -290,15 +292,7 @@ const ProjectDetails = () => {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ margin: 0 }}>Labour Details</h3>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Filter size={14} color="var(--color-text-muted)" />
-                <select value={laborPaymentFilter} onChange={e => setLaborPaymentFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
-                  <option value="All">All Payment Statuses</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Pending">Pending</option>
-                </select>
-              </div>
+            <div className="action-toolbar">
               <div style={{ width: '180px' }}>
                 <SearchWithSuggestions 
                   value={laborSearch}
@@ -307,6 +301,14 @@ const ProjectDetails = () => {
                   suggestions={laborLogs.map(l => l.name)}
                 />
               </div>
+              <button 
+                className={`btn btn-secondary ${laborPaymentFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowLaborFilterModal(true)}
+              >
+                <Filter size={14} /> Filter
+                {laborPaymentFilter !== 'All' && <span className="filter-badge-dot" />}
+              </button>
               <button 
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -331,6 +333,22 @@ const ProjectDetails = () => {
               </button>
             </div>
           </div>
+
+          <FilterModal
+            isOpen={showLaborFilterModal}
+            onClose={() => setShowLaborFilterModal(false)}
+            onReset={() => setLaborPaymentFilter('All')}
+            title="Filter Labour Logs"
+          >
+            <div className="form-group">
+              <label>Payment Status</label>
+              <select value={laborPaymentFilter} onChange={e => setLaborPaymentFilter(e.target.value)}>
+                <option value="All">All Payment Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+              </select>
+            </div>
+          </FilterModal>
           <div className="table-container">
             <table>
               <thead>

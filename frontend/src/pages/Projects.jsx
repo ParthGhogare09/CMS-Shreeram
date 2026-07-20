@@ -5,6 +5,7 @@ import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import { exportToExcel } from '../utils/exportToExcel';
+import FilterModal from '../components/FilterModal';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -20,6 +21,7 @@ const Projects = () => {
   const [currentProject, setCurrentProject] = useState({ id: '', name: '', client: '', budget: '', location: '', startDate: '', endDate: '', status: 'Active' });
   const [projectSearch, setProjectSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   if (loading) {
     return <SkeletonLoader type="table" rows={6} />;
@@ -36,7 +38,7 @@ const Projects = () => {
     <div className="projects-container">
       <div className="page-header" style={{ marginBottom: '1.25rem' }}>
         <h1 className="page-title">Manage Sites / Projects</h1>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="action-toolbar">
           <div style={{ width: '200px' }}>
             <SearchWithSuggestions 
               value={projectSearch}
@@ -45,20 +47,14 @@ const Projects = () => {
               suggestions={projects.map(p => p.name)}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Filter size={14} color="var(--color-text-muted)" />
-            <select 
-              value={statusFilter} 
-              onChange={e => setStatusFilter(e.target.value)}
-              style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}
-            >
-              <option value="All">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="Planning">Planning</option>
-              <option value="Completed">Completed</option>
-              <option value="On Hold">On Hold</option>
-            </select>
-          </div>
+          <button 
+            className={`btn btn-secondary ${statusFilter !== 'All' ? 'btn-filter-active' : ''}`} 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            onClick={() => setShowFilterModal(true)}
+          >
+            <Filter size={14} /> Filter
+            {statusFilter !== 'All' && <span className="filter-badge-dot" />}
+          </button>
           <button 
             className="btn btn-secondary" 
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -85,6 +81,24 @@ const Projects = () => {
           </button>
         </div>
       </div>
+
+      <FilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onReset={() => setStatusFilter('All')}
+        title="Filter Projects"
+      >
+        <div className="form-group">
+          <label>Project Status</label>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="All">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Planning">Planning</option>
+            <option value="Completed">Completed</option>
+            <option value="On Hold">On Hold</option>
+          </select>
+        </div>
+      </FilterModal>
 
       <div className="card">
         <div className="table-container">

@@ -5,6 +5,7 @@ import { formatDate } from '../utils';
 import { exportToExcel } from '../utils/exportToExcel';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import FilterModal from '../components/FilterModal';
 
 const Materials = () => {
   const {
@@ -27,11 +28,12 @@ const Materials = () => {
   const [showEditUsage, setShowEditUsage] = useState(false);
   const [currentUsage, setCurrentUsage] = useState({ id: '', material: '', project: '', quantity: '', unit: '', date: '', distributionRate: '' });
 
-  // Search states
   const [materialSearch, setMaterialSearch] = useState('');
   const [usageSearch, setUsageSearch] = useState('');
   const [stockStatusFilter, setStockStatusFilter] = useState('All');
   const [usageProjectFilter, setUsageProjectFilter] = useState('All');
+  const [showStockFilterModal, setShowStockFilterModal] = useState(false);
+  const [showUsageFilterModal, setShowUsageFilterModal] = useState(false);
 
   // Handlers for Material Stock
   const handleSaveMaterial = (e) => {
@@ -150,16 +152,23 @@ const Materials = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>All Raw Materials Stock</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Filter size={14} color="var(--color-text-muted)" />
-              <select value={stockStatusFilter} onChange={e => setStockStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
-                <option value="All">All Stock Levels</option>
-                <option value="In Stock">In Stock (&ge; 50)</option>
-                <option value="Low Stock">Low Stock (&lt; 50)</option>
-                <option value="Out of Stock">Out of Stock (= 0)</option>
-              </select>
+          <div className="action-toolbar">
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={materialSearch}
+                onChange={setMaterialSearch}
+                placeholder="Search stock..."
+                suggestions={materials.map(m => m.name)}
+              />
             </div>
+            <button 
+              className={`btn btn-secondary ${stockStatusFilter !== 'All' ? 'btn-filter-active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => setShowStockFilterModal(true)}
+            >
+              <Filter size={14} /> Filter
+              {stockStatusFilter !== 'All' && <span className="filter-badge-dot" />}
+            </button>
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -177,8 +186,31 @@ const Materials = () => {
             >
               <Download size={14} /> Export Excel
             </button>
+            <button className="btn btn-primary" onClick={() => {
+              setCurrentMaterial({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '' });
+              setShowAddMaterial(true);
+            }}>
+              <Plus size={16} /> Add Stock
+            </button>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showStockFilterModal}
+          onClose={() => setShowStockFilterModal(false)}
+          onReset={() => setStockStatusFilter('All')}
+          title="Filter Stock Levels"
+        >
+          <div className="form-group">
+            <label>Stock Level Status</label>
+            <select value={stockStatusFilter} onChange={e => setStockStatusFilter(e.target.value)}>
+              <option value="All">All Stock Levels</option>
+              <option value="In Stock">In Stock (&ge; 50)</option>
+              <option value="Low Stock">Low Stock (&lt; 50)</option>
+              <option value="Out of Stock">Out of Stock (= 0)</option>
+            </select>
+          </div>
+        </FilterModal>
         <div className="table-container">
           <table>
             <thead>
@@ -241,11 +273,7 @@ const Materials = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Recent Usage Logs (Distributed to Sites)</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select value={usageProjectFilter} onChange={e => setUsageProjectFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
-              <option value="All">All Sites / Projects</option>
-              {projects.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
-            </select>
+          <div className="action-toolbar">
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={usageSearch}
@@ -254,6 +282,14 @@ const Materials = () => {
                 suggestions={materials.map(m => m.name)}
               />
             </div>
+            <button 
+              className={`btn btn-secondary ${usageProjectFilter !== 'All' ? 'btn-filter-active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => setShowUsageFilterModal(true)}
+            >
+              <Filter size={14} /> Filter
+              {usageProjectFilter !== 'All' && <span className="filter-badge-dot" />}
+            </button>
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -273,8 +309,29 @@ const Materials = () => {
             >
               <Download size={14} /> Export Excel
             </button>
+            <button className="btn btn-secondary" onClick={() => {
+              setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+              setShowAddUsage(true);
+            }}>
+              <Truck size={16} /> Log Usage
+            </button>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showUsageFilterModal}
+          onClose={() => setShowUsageFilterModal(false)}
+          onReset={() => setUsageProjectFilter('All')}
+          title="Filter Usage Logs"
+        >
+          <div className="form-group">
+            <label>Site / Project</label>
+            <select value={usageProjectFilter} onChange={e => setUsageProjectFilter(e.target.value)}>
+              <option value="All">All Sites / Projects</option>
+              {projects.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
+            </select>
+          </div>
+        </FilterModal>
         <div className="table-container">
           <table>
             <thead>

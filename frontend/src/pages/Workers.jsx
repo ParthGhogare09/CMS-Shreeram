@@ -19,6 +19,7 @@ import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import { exportToExcel } from '../utils/exportToExcel';
+import FilterModal from '../components/FilterModal';
 
 const formatWorkerId = (id) => id ? `W-${id.toString().slice(-5).toUpperCase()}` : '';
 const formatCurrency = (amount) => `₹${amount.toLocaleString('en-IN')}`;
@@ -70,6 +71,8 @@ const Workers = () => {
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
+  const [showMasterFilterModal, setShowMasterFilterModal] = useState(false);
+  const [showLogFilterModal, setShowLogFilterModal] = useState(false);
 
   // Search suggestion states for tabs
   const [masterSearch, setMasterSearch] = useState('');
@@ -197,11 +200,13 @@ const Workers = () => {
       return matchesSearch && matchesRole && matchesStatus;
     });
 
+    const isMasterFiltered = roleFilter !== 'All' || statusFilter !== 'All';
+
     return (
       <div className="card">
         <div className="page-header" style={{ marginBottom: '1.25rem' }}>
           <h2 className="card-title" style={{ margin: 0 }}>Worker Master List</h2>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="action-toolbar">
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={masterSearch}
@@ -210,19 +215,14 @@ const Workers = () => {
                 suggestions={workers.map(w => w.name)}
               />
             </div>
-            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
-              <option value="All">All Roles</option>
-              <option value="Foreman">Foreman</option>
-              <option value="Mason">Mason</option>
-              <option value="Electrician">Electrician</option>
-              <option value="Plumber">Plumber</option>
-              <option value="Helper">Helper</option>
-            </select>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
-              <option value="All">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+            <button 
+              className={`btn btn-secondary ${isMasterFiltered ? 'btn-filter-active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => setShowMasterFilterModal(true)}
+            >
+              <Filter size={14} /> Filter
+              {isMasterFiltered && <span className="filter-badge-dot" />}
+            </button>
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -248,6 +248,36 @@ const Workers = () => {
             </button>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showMasterFilterModal}
+          onClose={() => setShowMasterFilterModal(false)}
+          onReset={() => {
+            setRoleFilter('All');
+            setStatusFilter('All');
+          }}
+          title="Filter Worker Master"
+        >
+          <div className="form-group">
+            <label>Worker Role</label>
+            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+              <option value="All">All Roles</option>
+              <option value="Foreman">Foreman</option>
+              <option value="Mason">Mason</option>
+              <option value="Electrician">Electrician</option>
+              <option value="Plumber">Plumber</option>
+              <option value="Helper">Helper</option>
+            </select>
+          </div>
+          <div className="form-group" style={{ marginTop: '1rem' }}>
+            <label>Status</label>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </FilterModal>
         <div className="table-container">
           <table>
             <thead>
@@ -314,11 +344,29 @@ const Workers = () => {
       return matchesDate && matchesProject && matchesSearch && matchesPayment;
     });
 
+    const isLogFiltered = filterDate !== '' || filterProject !== '' || paymentStatusFilter !== 'All';
+
     return (
       <div className="card">
         <div className="page-header" style={{ marginBottom: '1rem' }}>
           <h2 className="card-title" style={{ margin: 0 }}>Daily Attendance Logs</h2>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div className="action-toolbar">
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={logSearch}
+                onChange={setLogSearch}
+                placeholder="Search by worker..."
+                suggestions={workers.map(w => w.name)}
+              />
+            </div>
+            <button 
+              className={`btn btn-secondary ${isLogFiltered ? 'btn-filter-active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => setShowLogFilterModal(true)}
+            >
+              <Filter size={14} /> Filter
+              {isLogFiltered && <span className="filter-badge-dot" />}
+            </button>
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -348,20 +396,30 @@ const Workers = () => {
             </button>
           </div>
         </div>
-        <div className="labour-filter-bar" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <Calendar size={18} color="var(--color-text-muted)" />
+
+        <FilterModal
+          isOpen={showLogFilterModal}
+          onClose={() => setShowLogFilterModal(false)}
+          onReset={() => {
+            setFilterDate('');
+            setFilterProject('');
+            setPaymentStatusFilter('All');
+          }}
+          title="Filter Daily Attendance Logs"
+        >
+          <div className="form-group">
+            <label>Filter Date</label>
             <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <Briefcase size={18} color="var(--color-text-muted)" />
+          <div className="form-group" style={{ marginTop: '1rem' }}>
+            <label>Project Site</label>
             <select value={filterProject} onChange={e => setFilterProject(e.target.value)}>
               <option value="">All Projects</option>
               {projects.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
             </select>
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <Filter size={18} color="var(--color-text-muted)" />
+          <div className="form-group" style={{ marginTop: '1rem' }}>
+            <label>Payment Status</label>
             <select value={paymentStatusFilter} onChange={e => setPaymentStatusFilter(e.target.value)}>
               <option value="All">All Payment Statuses</option>
               <option value="Paid">Paid</option>
@@ -369,16 +427,7 @@ const Workers = () => {
               <option value="Partial">Partial</option>
             </select>
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', width: '220px'}}>
-            <Search size={18} color="var(--color-text-muted)" />
-            <SearchWithSuggestions 
-              value={logSearch}
-              onChange={setLogSearch}
-              placeholder="Search by worker name..."
-              suggestions={workers.map(w => w.name)}
-            />
-          </div>
-        </div>
+        </FilterModal>
         <div className="table-container">
           <table>
             <thead>

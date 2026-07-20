@@ -5,6 +5,7 @@ import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import { exportToExcel } from '../utils/exportToExcel';
+import FilterModal from '../components/FilterModal';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -29,6 +30,7 @@ const Finance = () => {
   const [labourSearch, setLabourSearch] = useState('');
   const [materialSearch, setMaterialSearch] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('All');
+  const [showIncomeFilterModal, setShowIncomeFilterModal] = useState(false);
 
   // Add Income Handler
   const handleAddIncome = (e) => {
@@ -111,18 +113,7 @@ const Finance = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Site Payments Received (Income)</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Filter size={14} color="var(--color-text-muted)" />
-              <select value={paymentTypeFilter} onChange={e => setPaymentTypeFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
-                <option value="All">All Payment Types</option>
-                <option value="Cash">Cash</option>
-                <option value="UPI">UPI</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Card">Card</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-            </div>
+          <div className="action-toolbar">
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={incomeSearch}
@@ -131,6 +122,14 @@ const Finance = () => {
                 suggestions={projects.map(p => p.name)}
               />
             </div>
+            <button 
+              className={`btn btn-secondary ${paymentTypeFilter !== 'All' ? 'btn-filter-active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => setShowIncomeFilterModal(true)}
+            >
+              <Filter size={14} /> Filter
+              {paymentTypeFilter !== 'All' && <span className="filter-badge-dot" />}
+            </button>
             <button 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
@@ -151,6 +150,25 @@ const Finance = () => {
             </button>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showIncomeFilterModal}
+          onClose={() => setShowIncomeFilterModal(false)}
+          onReset={() => setPaymentTypeFilter('All')}
+          title="Filter Site Income"
+        >
+          <div className="form-group">
+            <label>Payment Method</label>
+            <select value={paymentTypeFilter} onChange={e => setPaymentTypeFilter(e.target.value)}>
+              <option value="All">All Payment Types</option>
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Card">Card</option>
+              <option value="Cheque">Cheque</option>
+            </select>
+          </div>
+        </FilterModal>
         <div className="table-container">
           <table>
             <thead>
