@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Trash2, Edit } from 'lucide-react';
+import { Plus, X, Trash2, Edit, Download, Filter } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import { exportToExcel } from '../utils/exportToExcel';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -17,61 +18,25 @@ const Projects = () => {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentProject, setCurrentProject] = useState({ id: '', name: '', client: '', budget: '', location: '', startDate: '', endDate: '', status: 'Active' });
-  const [projectSearch, setProjectSearch] = useState('');
-
-  const handleAddProject = (e) => {
-    e.preventDefault();
-    if (Number(formData.budget) < 0) {
-      alert('Total Budget cannot be negative.');
-      return;
-    }
-    const newProj = {
-      name: formData.name,
-      client: formData.client,
-      budget: Number(formData.budget),
-      location: formData.location,
-      startDate: formData.startDate,
-      endDate: formData.endDate
-    };
-    addProjectAction(newProj);
-    setShowModal(false);
-    setFormData({ name: '', client: '', budget: '', location: '', startDate: '', endDate: '' });
-  };
-
-  const handleEditProject = (e) => {
-    e.preventDefault();
-    if (Number(currentProject.budget) < 0) {
-      alert('Total Budget cannot be negative.');
-      return;
-    }
-    const updatedProj = {
-      name: currentProject.name,
-      client: currentProject.client,
-      budget: Number(currentProject.budget),
-      location: currentProject.location,
-      startDate: currentProject.startDate,
-      endDate: currentProject.endDate,
-      status: currentProject.status
-    };
-    updateProjectAction(currentProject.id, updatedProj);
-    setShowEditModal(false);
-  };
+  const [statusFilter, setStatusFilter] = useState('All');
 
   if (loading) {
     return <SkeletonLoader type="table" rows={6} />;
   }
 
-  const filteredProjects = projects.filter(p => 
-    p.name.toLowerCase().includes(projectSearch.toLowerCase()) || 
-    p.client.toLowerCase().includes(projectSearch.toLowerCase())
-  );
+  const filteredProjects = projects.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(projectSearch.toLowerCase()) || 
+                          p.client.toLowerCase().includes(projectSearch.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="projects-container">
       <div className="page-header" style={{ marginBottom: '1.25rem' }}>
         <h1 className="page-title">Manage Sites / Projects</h1>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div style={{ width: '220px' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ width: '200px' }}>
             <SearchWithSuggestions 
               value={projectSearch}
               onChange={setProjectSearch}
@@ -79,6 +44,41 @@ const Projects = () => {
               suggestions={projects.map(p => p.name)}
             />
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Filter size={14} color="var(--color-text-muted)" />
+            <select 
+              value={statusFilter} 
+              onChange={e => setStatusFilter(e.target.value)}
+              style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Planning">Planning</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+            </select>
+          </div>
+          <button 
+            className="btn btn-secondary" 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            onClick={() => {
+              const exportData = filteredProjects.map(p => ({
+                'Project ID': p.id || p._id,
+                'Project Name': p.name,
+                'Client Name': p.client,
+                'Location': p.location || '-',
+                'Total Budget (₹)': p.budget,
+                'Amount Collected (₹)': p.collected || 0,
+                'Amount Spent (₹)': p.spent || 0,
+                'Status': p.status || 'Active',
+                'Start Date': p.startDate || '-',
+                'End Date': p.endDate || '-'
+              }));
+              exportToExcel(exportData, 'Projects_Report');
+            }}
+          >
+            <Download size={14} /> Export Excel
+          </button>
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
             <Plus size={16} /> New Project
           </button>

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { DollarSign, Plus, X, ArrowUpRight, CheckCircle, Clock, Trash2 } from 'lucide-react';
+import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import { exportToExcel } from '../utils/exportToExcel';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -23,10 +24,11 @@ const Finance = () => {
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [newIncome, setNewIncome] = useState({ project: '', amount: '', paymentType: 'Bank Transfer', date: new Date().toISOString().split('T')[0] });
 
-  // Search states
+  // Search and Filter states
   const [incomeSearch, setIncomeSearch] = useState('');
   const [labourSearch, setLabourSearch] = useState('');
   const [materialSearch, setMaterialSearch] = useState('');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('All');
 
   // Add Income Handler
   const handleAddIncome = (e) => {
@@ -51,9 +53,11 @@ const Finance = () => {
 
   const { totalBudget = 0, totalRevenue = 0, totalLaborPending = 0, totalLaborPaid = 0, totalMaterialSpent = 0 } = stats;
 
-  const filteredIncomes = incomes.filter(inc => 
-    inc.project.toLowerCase().includes(incomeSearch.toLowerCase())
-  );
+  const filteredIncomes = incomes.filter(inc => {
+    const matchesSearch = inc.project.toLowerCase().includes(incomeSearch.toLowerCase());
+    const matchesPaymentType = paymentTypeFilter === 'All' || inc.paymentType === paymentTypeFilter;
+    return matchesSearch && matchesPaymentType;
+  });
 
   const filteredLabourStats = labourStats.filter(worker => 
     worker.name.toLowerCase().includes(labourSearch.toLowerCase())
@@ -105,19 +109,45 @@ const Finance = () => {
 
       {/* SITE FINANCE TABLE */}
       <div className="card" style={{ marginTop: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-          <h3 style={{ margin: 0 }}>Site Finance (Revenue Received)</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <div style={{ width: '200px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <h3 style={{ margin: 0 }}>Site Payments Received (Income)</h3>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Filter size={14} color="var(--color-text-muted)" />
+              <select value={paymentTypeFilter} onChange={e => setPaymentTypeFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
+                <option value="All">All Payment Types</option>
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Card">Card</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+            <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={incomeSearch}
                 onChange={setIncomeSearch}
-                placeholder="Search project..."
+                placeholder="Search site..."
                 suggestions={projects.map(p => p.name)}
               />
             </div>
-            <button className="btn btn-primary" onClick={() => setShowAddIncome(true)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
-              <Plus size={16} /> Add Incoming Amount
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredIncomes.map(inc => ({
+                  'Date': formatDate(inc.date),
+                  'Site / Project': inc.project,
+                  'Payment Type': inc.paymentType,
+                  'Amount Received (₹)': inc.amount
+                }));
+                exportToExcel(exportData, 'Site_Income_Report');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowAddIncome(true)}>
+              <Plus size={16} /> Add Income
             </button>
           </div>
         </div>
@@ -172,15 +202,33 @@ const Finance = () => {
 
       {/* LABOUR FINANCE TABLE */}
       <div className="card" style={{ marginTop: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Labour Finance Summary</h3>
-          <div style={{ width: '220px' }}>
-            <SearchWithSuggestions 
-              value={labourSearch}
-              onChange={setLabourSearch}
-              placeholder="Search worker..."
-              suggestions={labourStats.map(w => w.name)}
-            />
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={labourSearch}
+                onChange={setLabourSearch}
+                placeholder="Search worker..."
+                suggestions={labourStats.map(w => w.name)}
+              />
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredLabourStats.map(w => ({
+                  'Worker Name': w.name,
+                  'Total Wage Incurred (₹)': w.incurred,
+                  'Amount Paid (₹)': w.paid,
+                  'Amount Pending (₹)': w.pending,
+                  'Status': w.pending > 0 ? 'Pending' : 'Clear'
+                }));
+                exportToExcel(exportData, 'Labour_Finance_Summary');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
           </div>
         </div>
         <div className="table-container">
@@ -224,15 +272,34 @@ const Finance = () => {
 
       {/* MATERIAL FINANCE TABLE */}
       <div className="card" style={{ marginTop: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Material Finance Overview</h3>
-          <div style={{ width: '220px' }}>
-            <SearchWithSuggestions 
-              value={materialSearch}
-              onChange={setMaterialSearch}
-              placeholder="Search material..."
-              suggestions={materialStats.map(m => m.name)}
-            />
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={materialSearch}
+                onChange={setMaterialSearch}
+                placeholder="Search material..."
+                suggestions={materialStats.map(m => m.name)}
+              />
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredMaterialStats.map(m => ({
+                  'Material Name': m.name,
+                  'Total Purchase Cost (₹)': m.purchaseValue,
+                  'Purchased Qty': `${m.purchasedQty} ${m.unit}`,
+                  'Distributed Value (₹)': m.distValue,
+                  'Distributed Qty': `${m.distQty} ${m.unit}`,
+                  'Profit / Difference (₹)': m.profit
+                }));
+                exportToExcel(exportData, 'Material_Finance_Overview');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
           </div>
         </div>
         <div className="table-container">

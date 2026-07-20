@@ -11,12 +11,14 @@ import {
   DollarSign,
   UserCheck,
   Edit,
-  Trash2
+  Trash2,
+  Download
 } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import { exportToExcel } from '../utils/exportToExcel';
 
 const formatWorkerId = (id) => id ? `W-${id.toString().slice(-5).toUpperCase()}` : '';
 const formatCurrency = (amount) => `₹${amount.toLocaleString('en-IN')}`;
@@ -63,6 +65,11 @@ const Workers = () => {
 
   // Monthly Summary state
   const [month, setMonth] = useState('2026-05');
+
+  // Filter states
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
 
   // Search suggestion states for tabs
   const [masterSearch, setMasterSearch] = useState('');
@@ -182,17 +189,20 @@ const Workers = () => {
 
   // Tab 1: Worker Master
   const renderWorkerMaster = () => {
-    const filteredWorkers = workers.filter(w => 
-      w.name.toLowerCase().includes(masterSearch.toLowerCase()) ||
-      w.role.toLowerCase().includes(masterSearch.toLowerCase())
-    );
+    const filteredWorkers = workers.filter(w => {
+      const matchesSearch = w.name.toLowerCase().includes(masterSearch.toLowerCase()) ||
+                            w.role.toLowerCase().includes(masterSearch.toLowerCase());
+      const matchesRole = roleFilter === 'All' || w.role === roleFilter;
+      const matchesStatus = statusFilter === 'All' || w.status === statusFilter;
+      return matchesSearch && matchesRole && matchesStatus;
+    });
 
     return (
       <div className="card">
         <div className="page-header" style={{ marginBottom: '1.25rem' }}>
           <h2 className="card-title" style={{ margin: 0 }}>Worker Master List</h2>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <div style={{ width: '220px' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={masterSearch}
                 onChange={setMasterSearch}
@@ -200,6 +210,36 @@ const Workers = () => {
                 suggestions={workers.map(w => w.name)}
               />
             </div>
+            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
+              <option value="All">All Roles</option>
+              <option value="Foreman">Foreman</option>
+              <option value="Mason">Mason</option>
+              <option value="Electrician">Electrician</option>
+              <option value="Plumber">Plumber</option>
+              <option value="Helper">Helper</option>
+            </select>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredWorkers.map(w => ({
+                  'Worker ID': formatWorkerId(w.id || w._id),
+                  'Name': w.name,
+                  'Role': w.role,
+                  'Daily Rate (₹)': w.dailyWage || w.wage,
+                  'Contact': w.contactInfo || w.contact || '-',
+                  'Status': w.status
+                }));
+                exportToExcel(exportData, 'Workers_Master_Report');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
             <button className="btn btn-primary" onClick={() => {
               setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
               setShowAddWorker(true);
@@ -265,26 +305,50 @@ const Workers = () => {
     );
   };
 
-  // Tab 2: Daily Log
   const renderDailyLog = () => {
     const filteredLogs = dailyLogs.filter(log => {
-      return (filterDate === '' || log.date === filterDate) &&
-             (filterProject === '' || log.project === filterProject) &&
-             (logSearch === '' || log.name.toLowerCase().includes(logSearch.toLowerCase()));
+      const matchesDate = filterDate === '' || log.date === filterDate;
+      const matchesProject = filterProject === '' || log.project === filterProject;
+      const matchesSearch = logSearch === '' || log.name.toLowerCase().includes(logSearch.toLowerCase());
+      const matchesPayment = paymentStatusFilter === 'All' || log.paymentStatus === paymentStatusFilter;
+      return matchesDate && matchesProject && matchesSearch && matchesPayment;
     });
 
     return (
       <div className="card">
         <div className="page-header" style={{ marginBottom: '1rem' }}>
           <h2 className="card-title" style={{ margin: 0 }}>Daily Attendance Logs</h2>
-          <button className="btn btn-primary" onClick={() => {
-            setCurrentLog({ id: '', date: '', workerId: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
-            setShowAddLog(true);
-          }}>
-            <Plus size={16} /> Add New Data
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredLogs.map(log => ({
+                  'Date': formatDate(log.date),
+                  'Worker Name': log.name,
+                  'Project': log.project || '-',
+                  'Attendance Status': log.status,
+                  'Work Time': log.workTime,
+                  'Daily Rate (₹)': log.rate || log.wageAtTime,
+                  'Calculated Wage (₹)': log.wage || log.wageAtTime,
+                  'Paid (₹)': getAmountPaid(log),
+                  'Pending (₹)': getAmountPending(log),
+                  'Payment Status': log.paymentStatus
+                }));
+                exportToExcel(exportData, 'Daily_Attendance_Logs');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+            <button className="btn btn-primary" onClick={() => {
+              setCurrentLog({ id: '', date: '', workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
+              setShowAddLog(true);
+            }}>
+              <Plus size={16} /> Add New Data
+            </button>
+          </div>
         </div>
-        <div className="labour-filter-bar">
+        <div className="labour-filter-bar" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
             <Calendar size={18} color="var(--color-text-muted)" />
             <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
@@ -296,7 +360,16 @@ const Workers = () => {
               {projects.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
             </select>
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', width: '250px'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            <Filter size={18} color="var(--color-text-muted)" />
+            <select value={paymentStatusFilter} onChange={e => setPaymentStatusFilter(e.target.value)}>
+              <option value="All">All Payment Statuses</option>
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Partial">Partial</option>
+            </select>
+          </div>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', width: '220px'}}>
             <Search size={18} color="var(--color-text-muted)" />
             <SearchWithSuggestions 
               value={logSearch}

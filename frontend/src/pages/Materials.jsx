@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Package, Truck, Plus, X, Edit, Trash2 } from 'lucide-react';
+import { Package, Truck, AlertTriangle, Plus, Search, Trash2, Edit, Download, Filter, X } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
+import { exportToExcel } from '../utils/exportToExcel';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 
@@ -29,6 +30,8 @@ const Materials = () => {
   // Search states
   const [materialSearch, setMaterialSearch] = useState('');
   const [usageSearch, setUsageSearch] = useState('');
+  const [stockStatusFilter, setStockStatusFilter] = useState('All');
+  const [usageProjectFilter, setUsageProjectFilter] = useState('All');
 
   // Handlers for Material Stock
   const handleSaveMaterial = (e) => {
@@ -100,14 +103,21 @@ const Materials = () => {
     return <SkeletonLoader type="table" rows={6} />;
   }
 
-  const filteredMaterials = materials.filter(m => 
-    m.name.toLowerCase().includes(materialSearch.toLowerCase())
-  );
+  const filteredMaterials = materials.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(materialSearch.toLowerCase());
+    let matchesStock = true;
+    if (stockStatusFilter === 'Low Stock') matchesStock = m.stock > 0 && m.stock < 50;
+    if (stockStatusFilter === 'In Stock') matchesStock = m.stock >= 50;
+    if (stockStatusFilter === 'Out of Stock') matchesStock = m.stock <= 0;
+    return matchesSearch && matchesStock;
+  });
 
-  const filteredUsageLogs = usageLogs.filter(log => 
-    log.material.toLowerCase().includes(usageSearch.toLowerCase()) ||
-    log.project.toLowerCase().includes(usageSearch.toLowerCase())
-  );
+  const filteredUsageLogs = usageLogs.filter(log => {
+    const matchesSearch = log.material.toLowerCase().includes(usageSearch.toLowerCase()) ||
+                          log.project.toLowerCase().includes(usageSearch.toLowerCase());
+    const matchesProject = usageProjectFilter === 'All' || log.project === usageProjectFilter;
+    return matchesSearch && matchesProject;
+  });
 
   return (
     <div className="materials-container">
@@ -138,7 +148,37 @@ const Materials = () => {
       </div>
 
       <div className="card" style={{ marginTop: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>All Raw Materials Stock</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <h3 style={{ margin: 0 }}>All Raw Materials Stock</h3>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Filter size={14} color="var(--color-text-muted)" />
+              <select value={stockStatusFilter} onChange={e => setStockStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
+                <option value="All">All Stock Levels</option>
+                <option value="In Stock">In Stock (&ge; 50)</option>
+                <option value="Low Stock">Low Stock (&lt; 50)</option>
+                <option value="Out of Stock">Out of Stock (= 0)</option>
+              </select>
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredMaterials.map(mat => ({
+                  'Material ID': formatMaterialId(mat.id || mat._id),
+                  'Material Name': mat.name,
+                  'Stock Available': mat.stock,
+                  'Unit': mat.unit,
+                  'Purchase Rate (₹)': mat.purchaseAmount,
+                  'Total Purchase Amount (₹)': (mat.stock || 0) * (mat.purchaseAmount || 0)
+                }));
+                exportToExcel(exportData, 'Materials_Stock_Report');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+          </div>
+        </div>
         <div className="table-container">
           <table>
             <thead>
@@ -199,15 +239,40 @@ const Materials = () => {
       </div>
 
       <div className="card" style={{ marginTop: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Recent Usage Logs (Distributed to Sites)</h3>
-          <div style={{ width: '220px' }}>
-            <SearchWithSuggestions 
-              value={usageSearch}
-              onChange={setUsageSearch}
-              placeholder="Search usage..."
-              suggestions={materials.map(m => m.name)}
-            />
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select value={usageProjectFilter} onChange={e => setUsageProjectFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
+              <option value="All">All Sites / Projects</option>
+              {projects.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
+            </select>
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={usageSearch}
+                onChange={setUsageSearch}
+                placeholder="Search usage..."
+                suggestions={materials.map(m => m.name)}
+              />
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredUsageLogs.map(log => ({
+                  'Log ID': formatMaterialId(log.id || log._id),
+                  'Material': log.material,
+                  'Site / Project': log.project,
+                  'Quantity Distributed': log.quantity,
+                  'Unit': log.unit,
+                  'Distribution Rate (₹)': log.distributionRate,
+                  'Total Distributed Amount (₹)': Number(log.distributionRate || 0) * Number(log.quantity || 0),
+                  'Date of Distribution': log.date
+                }));
+                exportToExcel(exportData, 'Material_Usage_Logs');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
           </div>
         </div>
         <div className="table-container">

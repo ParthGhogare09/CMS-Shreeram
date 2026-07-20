@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, X, Edit, Trash2, Download, Filter } from 'lucide-react';
 import { getProjectDetails } from '../api';
 import { useCMS } from '../context/CMSContext';
 import { MOCK_PROJECTS, PROJECT_LOGS } from '../mockData';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
+import { exportToExcel } from '../utils/exportToExcel';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -42,6 +43,7 @@ const ProjectDetails = () => {
   // Search states
   const [laborSearch, setLaborSearch] = useState('');
   const [materialSearch, setMaterialSearch] = useState('');
+  const [laborPaymentFilter, setLaborPaymentFilter] = useState('All');
 
   const fetchProjectDetails = () => {
     getProjectDetails(projectId)
@@ -185,9 +187,14 @@ const ProjectDetails = () => {
   const materialLogs = logs.filter(l => l.type === 'Material' || l.type === 'Miscellaneous');
   const otherLogs = logs.filter(l => l.type === 'Transportation' || l.type === 'Rental');
 
-  const filteredLaborLogs = laborLogs.filter(log => 
-    log.name.toLowerCase().includes(laborSearch.toLowerCase())
-  );
+  const filteredLaborLogs = laborLogs.filter(log => {
+    const matchesSearch = log.name.toLowerCase().includes(laborSearch.toLowerCase());
+    const paid = log.amountPaid ?? log.cost;
+    const pending = log.cost - paid;
+    const status = pending <= 0 ? 'Paid' : 'Pending';
+    const matchesPayment = laborPaymentFilter === 'All' || status === laborPaymentFilter;
+    return matchesSearch && matchesPayment;
+  });
 
   const filteredMaterialLogs = materialLogs.filter(log => 
     log.name.toLowerCase().includes(materialSearch.toLowerCase())
@@ -281,15 +288,47 @@ const ProjectDetails = () => {
 
       <div className="charts-grid" style={{ marginTop: '2rem', gridTemplateColumns: '1fr' }}>
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ margin: 0 }}>Labour Details</h3>
-            <div style={{ width: '220px' }}>
-              <SearchWithSuggestions 
-                value={laborSearch}
-                onChange={setLaborSearch}
-                placeholder="Search worker..."
-                suggestions={laborLogs.map(l => l.name)}
-              />
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Filter size={14} color="var(--color-text-muted)" />
+                <select value={laborPaymentFilter} onChange={e => setLaborPaymentFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem', borderRadius: '6px' }}>
+                  <option value="All">All Payment Statuses</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </div>
+              <div style={{ width: '180px' }}>
+                <SearchWithSuggestions 
+                  value={laborSearch}
+                  onChange={setLaborSearch}
+                  placeholder="Search worker..."
+                  suggestions={laborLogs.map(l => l.name)}
+                />
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredLaborLogs.map(log => {
+                    const paid = log.amountPaid ?? log.cost;
+                    const pending = log.cost - paid;
+                    return {
+                      'Date': formatDate(log.date),
+                      'Worker Name': log.name,
+                      'Time Worked': `${log.days || 1} Days`,
+                      'Wage Incurred (₹)': log.cost,
+                      'Paid (₹)': paid,
+                      'Pending (₹)': pending,
+                      'Status': pending <= 0 ? 'Paid' : 'Pending'
+                    };
+                  });
+                  exportToExcel(exportData, `${project.name}_Labour_Details`);
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
             </div>
           </div>
           <div className="table-container">
@@ -350,15 +389,40 @@ const ProjectDetails = () => {
         </div>
 
         <div className="card" style={{ marginTop: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ margin: 0 }}>Material & Miscellaneous Usage</h3>
-            <div style={{ width: '220px' }}>
-              <SearchWithSuggestions 
-                value={materialSearch}
-                onChange={setMaterialSearch}
-                placeholder="Search item..."
-                suggestions={materialLogs.map(l => l.name)}
-              />
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <div style={{ width: '180px' }}>
+                <SearchWithSuggestions 
+                  value={materialSearch}
+                  onChange={setMaterialSearch}
+                  placeholder="Search item..."
+                  suggestions={materialLogs.map(l => l.name)}
+                />
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredMaterialLogs.map(log => {
+                    const qty = log.quantity || 1;
+                    const rate = log.distributionRate || log.cost;
+                    const total = log.cost || (qty * rate);
+                    return {
+                      'Log ID': log.id || log._id,
+                      'Material / Item': log.name,
+                      'Quantity Distributed': qty,
+                      'Unit': log.unit || 'Units',
+                      'Distribution Rate (₹)': rate,
+                      'Total Amount (₹)': total,
+                      'Date of Distribution': formatDate(log.date)
+                    };
+                  });
+                  exportToExcel(exportData, `${project.name}_Material_Usage`);
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
             </div>
           </div>
           <div className="table-container">
