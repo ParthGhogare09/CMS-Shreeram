@@ -7,6 +7,9 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import FilterModal from '../components/FilterModal';
 
+const formatCurrency = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN')}`;
+const formatMaterialId = (id) => id ? `M-${id.toString().slice(-5).toUpperCase()}` : '';
+
 const Materials = () => {
   const {
     materials,

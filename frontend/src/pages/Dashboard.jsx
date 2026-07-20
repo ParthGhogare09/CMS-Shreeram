@@ -88,7 +88,7 @@ const Dashboard = () => {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1rem' }}>
           <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>Income vs Expense (This Month)</h3>
           <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={expenseData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
@@ -115,7 +115,7 @@ const Dashboard = () => {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1rem' }}>
           <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>Labour Status</h3>
           <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={laborStatusChart}
