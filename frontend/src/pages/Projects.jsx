@@ -21,6 +21,10 @@ const Projects = () => {
 
   const handleAddProject = (e) => {
     e.preventDefault();
+    if (Number(formData.budget) < 0) {
+      alert('Total Budget cannot be negative.');
+      return;
+    }
     const newProj = {
       name: formData.name,
       client: formData.client,
@@ -36,6 +40,10 @@ const Projects = () => {
 
   const handleEditProject = (e) => {
     e.preventDefault();
+    if (Number(currentProject.budget) < 0) {
+      alert('Total Budget cannot be negative.');
+      return;
+    }
     const updatedProj = {
       name: currentProject.name,
       client: currentProject.client,
@@ -182,18 +190,26 @@ const Projects = () => {
                 <input 
                   type="text" 
                   required 
+                  list="client-suggestions"
                   value={formData.client} 
                   onChange={e => setFormData({...formData, client: e.target.value})} 
                 />
+                <datalist id="client-suggestions">
+                  {[...new Set(projects.map(p => p.client))].map((c, i) => <option key={i} value={c} />)}
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Location / Site Address</label>
                 <input 
                   type="text" 
                   required 
+                  list="location-suggestions"
                   value={formData.location} 
                   onChange={e => setFormData({...formData, location: e.target.value})} 
                 />
+                <datalist id="location-suggestions">
+                  {[...new Set(projects.map(p => p.location).filter(Boolean))].map((l, i) => <option key={i} value={l} />)}
+                </datalist>
               </div>
               <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
@@ -221,6 +237,7 @@ const Projects = () => {
                 <label>Total Budget (₹)</label>
                 <input 
                   type="number" 
+                  min="0"
                   required 
                   value={formData.budget} 
                   onChange={e => setFormData({...formData, budget: e.target.value})} 
@@ -258,6 +275,7 @@ const Projects = () => {
                 <input 
                   type="text" 
                   required 
+                  list="client-suggestions"
                   value={currentProject.client} 
                   onChange={e => setCurrentProject({...currentProject, client: e.target.value})} 
                 />
@@ -267,6 +285,7 @@ const Projects = () => {
                 <input 
                   type="text" 
                   required 
+                  list="location-suggestions"
                   value={currentProject.location} 
                   onChange={e => setCurrentProject({...currentProject, location: e.target.value})} 
                 />
@@ -307,6 +326,7 @@ const Projects = () => {
                 <label>Total Budget (₹)</label>
                 <input 
                   type="number" 
+                  min="0"
                   required 
                   value={currentProject.budget} 
                   onChange={e => setCurrentProject({...currentProject, budget: e.target.value})} 

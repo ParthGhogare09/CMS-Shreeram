@@ -81,6 +81,10 @@ const Workers = () => {
 
   const handleAddWorker = (e) => {
     e.preventDefault();
+    if (Number(currentWorker.wage) < 0) {
+      alert('Daily Wage cannot be negative.');
+      return;
+    }
     addWorkerAction({
       name: currentWorker.name,
       role: currentWorker.role,
@@ -94,6 +98,10 @@ const Workers = () => {
 
   const handleEditWorker = (e) => {
     e.preventDefault();
+    if (Number(currentWorker.wage) < 0) {
+      alert('Daily Wage cannot be negative.');
+      return;
+    }
     updateWorkerAction(currentWorker.id, {
       name: currentWorker.name,
       role: currentWorker.role,
@@ -119,11 +127,21 @@ const Workers = () => {
     const wage = rate * wageMultiplier;
 
     let paidAmt = currentLog.amountPaid === '' ? 0 : Number(currentLog.amountPaid);
+    if (paidAmt < 0) {
+      alert('Amount Paid cannot be negative.');
+      return;
+    }
+    if (paidAmt > wage) {
+      alert(`Amount Paid (₹${paidAmt}) cannot exceed the total calculated wage (₹${wage}).`);
+      return;
+    }
+
     let finalStatus = currentLog.paymentStatus;
     
-    // Auto-resolve partial payments
+    // Auto-resolve partial/paid/pending statuses
     if (currentLog.paymentStatus === 'Paid' && paidAmt === 0 && currentLog.amountPaid === '') {
       paidAmt = wage;
+      finalStatus = 'Paid';
     } else if (paidAmt > 0 && paidAmt < wage) {
       finalStatus = 'Partial';
     } else if (paidAmt >= wage && wage > 0) {
@@ -839,7 +857,7 @@ const Workers = () => {
               </div>
               <div className="form-group">
                 <label>Daily Wage (₹)</label>
-                <input required type="number" value={currentWorker.wage} onChange={e => setCurrentWorker({...currentWorker, wage: e.target.value})} placeholder="e.g. 1000" />
+                <input required type="number" min="0" value={currentWorker.wage} onChange={e => setCurrentWorker({...currentWorker, wage: e.target.value})} placeholder="e.g. 1000" />
               </div>
               <div className="form-group">
                 <label>Contact Number</label>
@@ -893,13 +911,11 @@ const Workers = () => {
                 <input required type="date" value={currentLog.date} onChange={e => setCurrentLog({...currentLog, date: e.target.value})} />
               </div>
               <div className="form-group">
-                <label>Project</label>
-                <select required value={currentLog.project} onChange={e => setCurrentLog({...currentLog, project: e.target.value})}>
-                  <option value="">Select Project...</option>
-                  {projects.map(p => (
-                    <option key={p.id || p._id} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
+                <label>Project Name</label>
+                <input required type="text" list="worker-project-list" value={currentLog.project} onChange={e => setCurrentLog({...currentLog, project: e.target.value})} placeholder="Type or select project..." />
+                <datalist id="worker-project-list">
+                  {projects.map((p, i) => <option key={i} value={p.name} />)}
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Attendance Status</label>
@@ -928,9 +944,9 @@ const Workers = () => {
               </div>
               <div className="form-group">
                 <label>Amount Paid (₹)</label>
-                <input type="number" value={currentLog.amountPaid} onChange={e => setCurrentLog({...currentLog, amountPaid: e.target.value})} placeholder="Enter amount paid (optional)" />
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                  Leave empty to auto-calculate based on Payment Status.
+                <input type="number" min="0" value={currentLog.amountPaid} onChange={e => setCurrentLog({...currentLog, amountPaid: e.target.value})} placeholder="Enter amount paid (optional)" />
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  Leave empty to auto-calculate based on Payment Status. Cannot exceed total wage.
                 </span>
               </div>
               <div className="modal-actions">

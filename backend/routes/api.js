@@ -690,6 +690,13 @@ router.put('/workers/logs/:id', async (req, res) => {
 
     const paidAmt = amountPaid === '' || amountPaid === undefined ? (paymentStatus === 'Paid' ? wage : 0) : Number(amountPaid);
 
+    if (paidAmt < 0) {
+      return res.status(400).json({ error: 'Amount paid cannot be negative' });
+    }
+    if (paidAmt > wage) {
+      return res.status(400).json({ error: `Amount paid (₹${paidAmt}) cannot exceed total calculated wage (₹${wage})` });
+    }
+
     let finalPayStatus = paymentStatus;
     if (paidAmt > 0 && paidAmt < wage) {
       finalPayStatus = 'Partial';

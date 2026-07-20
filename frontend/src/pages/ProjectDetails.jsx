@@ -19,6 +19,7 @@ const ProjectDetails = () => {
   
   const { 
     materials,
+    workers,
     addProjectLogAction,
     updateProjectAction,
     deleteWorkerLogAction,
@@ -89,7 +90,23 @@ const ProjectDetails = () => {
       }
     }
 
-    const costNum = Number(formData.cost);
+    const costNum = Number(formData.cost) || 0;
+    if (costNum < 0) {
+      alert('Cost / Wage cannot be negative.');
+      return;
+    }
+    if (formData.quantity && Number(formData.quantity) < 0) {
+      alert('Quantity cannot be negative.');
+      return;
+    }
+    if (formData.distributionRate && Number(formData.distributionRate) < 0) {
+      alert('Distribution Rate cannot be negative.');
+      return;
+    }
+    if (formData.days && Number(formData.days) < 0) {
+      alert('Days cannot be negative.');
+      return;
+    }
     
     // For Material & Misc, total cost might be quantity * distributionRate
     let finalCost = costNum;
@@ -97,6 +114,18 @@ const ProjectDetails = () => {
        finalCost = Number(formData.distributionRate) * Number(formData.quantity);
     } else if (entryType === 'Miscellaneous' && !formData.quantity) {
        finalCost = costNum; // Direct cost for Misc
+    }
+
+    if (entryType === 'Labor') {
+      const paid = formData.amountPaid === '' ? finalCost : Number(formData.amountPaid);
+      if (paid < 0) {
+        alert('Amount Paid cannot be negative.');
+        return;
+      }
+      if (paid > finalCost) {
+        alert(`Amount Paid (₹${paid}) cannot exceed the wage incurred (₹${finalCost}).`);
+        return;
+      }
     }
 
     const newLog = {
@@ -423,7 +452,26 @@ const ProjectDetails = () => {
                 <>
                   <div className="form-group">
                     <label>Worker Name</label>
-                    <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. John Doe" />
+                    <input 
+                      type="text" 
+                      required 
+                      list="detail-workers-list"
+                      value={formData.name} 
+                      onChange={e => {
+                        const wName = e.target.value;
+                        const w = workers ? workers.find(work => work.name.toLowerCase() === wName.toLowerCase()) : null;
+                        setFormData({
+                          ...formData, 
+                          name: wName, 
+                          role: w ? w.role : formData.role, 
+                          cost: w ? (w.dailyWage || w.wage) : formData.cost
+                        });
+                      }} 
+                      placeholder="Type or select worker name..." 
+                    />
+                    <datalist id="detail-workers-list">
+                      {workers && workers.map((w, i) => <option key={i} value={w.name} />)}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Role</label>
@@ -431,15 +479,15 @@ const ProjectDetails = () => {
                   </div>
                   <div className="form-group">
                     <label>Time Worked (Days)</label>
-                    <input type="number" step="0.5" required value={formData.days} onChange={e => setFormData({...formData, days: e.target.value})} placeholder="e.g. 1" />
+                    <input type="number" min="0" step="0.5" required value={formData.days} onChange={e => setFormData({...formData, days: e.target.value})} placeholder="e.g. 1" />
                   </div>
                   <div className="form-group">
                     <label>Wage Incurred (₹)</label>
-                    <input type="number" required value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} placeholder="e.g. 800" />
+                    <input type="number" min="0" required value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} placeholder="e.g. 800" />
                   </div>
                   <div className="form-group">
                     <label>Amount Paid (₹)</label>
-                    <input type="number" value={formData.amountPaid} onChange={e => setFormData({...formData, amountPaid: e.target.value})} placeholder="Leave blank if fully paid" />
+                    <input type="number" min="0" value={formData.amountPaid} onChange={e => setFormData({...formData, amountPaid: e.target.value})} placeholder="Leave blank if fully paid" />
                   </div>
                 </>
               )}
@@ -448,12 +496,31 @@ const ProjectDetails = () => {
                 <>
                   <div className="form-group">
                     <label>Material Name</label>
-                    <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Cement" />
+                    <input 
+                      type="text" 
+                      required 
+                      list="detail-materials-list"
+                      value={formData.name} 
+                      onChange={e => {
+                        const mName = e.target.value;
+                        const m = materials.find(mat => mat.name.toLowerCase() === mName.toLowerCase());
+                        setFormData({
+                          ...formData, 
+                          name: mName, 
+                          unit: m ? m.unit : formData.unit, 
+                          distributionRate: m ? m.purchaseAmount : formData.distributionRate
+                        });
+                      }} 
+                      placeholder="Type or select material name..." 
+                    />
+                    <datalist id="detail-materials-list">
+                      {materials.map((m, i) => <option key={i} value={m.name} />)}
+                    </datalist>
                   </div>
                   <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                     <div style={{ flex: 1 }}>
                       <label>Quantity Distributed</label>
-                      <input type="number" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} placeholder="e.g. 50" style={{ width: '100%' }} />
+                      <input type="number" min="0" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} placeholder="e.g. 50" style={{ width: '100%' }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <label>Unit</label>
@@ -470,7 +537,7 @@ const ProjectDetails = () => {
                   </div>
                   <div className="form-group">
                     <label>Distribution Rate (₹)</label>
-                    <input type="number" required value={formData.distributionRate} onChange={e => setFormData({...formData, distributionRate: e.target.value})} placeholder="e.g. 350" />
+                    <input type="number" min="0" required value={formData.distributionRate} onChange={e => setFormData({...formData, distributionRate: e.target.value})} placeholder="e.g. 350" />
                   </div>
                 </>
               )}
@@ -483,7 +550,7 @@ const ProjectDetails = () => {
                   </div>
                   <div className="form-group">
                     <label>Amount Spent (₹)</label>
-                    <input type="number" required value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} placeholder="e.g. 2000" />
+                    <input type="number" min="0" required value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} placeholder="e.g. 2000" />
                   </div>
                 </>
               )}
@@ -503,7 +570,7 @@ const ProjectDetails = () => {
                   </div>
                   <div className="form-group">
                     <label>Days Rented</label>
-                    <input type="number" required value={formData.days} onChange={e => setFormData({...formData, days: e.target.value})} />
+                    <input type="number" min="0" required value={formData.days} onChange={e => setFormData({...formData, days: e.target.value})} />
                   </div>
                 </>
               )}
@@ -511,7 +578,7 @@ const ProjectDetails = () => {
               {(entryType === 'Transportation' || entryType === 'Rental') && (
                 <div className="form-group">
                   <label>Total Cost (₹)</label>
-                  <input type="number" required value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
+                  <input type="number" min="0" required value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
                 </div>
               )}
 

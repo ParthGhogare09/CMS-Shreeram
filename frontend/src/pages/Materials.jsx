@@ -33,6 +33,14 @@ const Materials = () => {
   // Handlers for Material Stock
   const handleSaveMaterial = (e) => {
     e.preventDefault();
+    if (Number(currentMaterial.stock) < 0) {
+      alert('Stock Available cannot be negative.');
+      return;
+    }
+    if (Number(currentMaterial.purchaseAmount) < 0) {
+      alert('Purchase Rate cannot be negative.');
+      return;
+    }
     saveMaterialAction({
       id: showEditMaterial ? currentMaterial.id : undefined,
       name: currentMaterial.name,
@@ -48,9 +56,19 @@ const Materials = () => {
   // Handlers for Material Usage
   const handleSaveUsage = (e) => {
     e.preventDefault();
-    const selectedMat = materials.find(m => m.name === currentUsage.material);
+    const selectedMat = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').toLowerCase());
     const requestedQty = Number(currentUsage.quantity) || 0;
+    const rate = Number(currentUsage.distributionRate) || 0;
     const stockAvailable = selectedMat ? selectedMat.stock : 0;
+
+    if (requestedQty < 0) {
+      alert('Quantity cannot be negative.');
+      return;
+    }
+    if (rate < 0) {
+      alert('Distribution Rate cannot be negative.');
+      return;
+    }
 
     if (!showEditUsage && (!selectedMat || stockAvailable <= 0)) {
       alert(`Material "${currentUsage.material}" is out of stock (Available: 0). Please add stock first before logging material usage.`);
@@ -264,7 +282,7 @@ const Materials = () => {
               </div>
               <div className="form-group">
                 <label>Stock Available</label>
-                <input required type="number" value={currentMaterial.stock} onChange={e => setCurrentMaterial({...currentMaterial, stock: e.target.value})} placeholder="e.g. 100" />
+                <input required type="number" min="0" value={currentMaterial.stock} onChange={e => setCurrentMaterial({...currentMaterial, stock: e.target.value})} placeholder="e.g. 100" />
               </div>
               <div className="form-group">
                 <label>Unit (Indian Context)</label>
@@ -280,7 +298,7 @@ const Materials = () => {
               </div>
               <div className="form-group">
                 <label>Purchase Rate (₹)</label>
-                <input required type="number" value={currentMaterial.purchaseAmount} onChange={e => setCurrentMaterial({...currentMaterial, purchaseAmount: e.target.value})} placeholder="e.g. 350" />
+                <input required type="number" min="0" value={currentMaterial.purchaseAmount} onChange={e => setCurrentMaterial({...currentMaterial, purchaseAmount: e.target.value})} placeholder="e.g. 350" />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => { setShowAddMaterial(false); setShowEditMaterial(false); }}>Cancel</button>
@@ -303,37 +321,49 @@ const Materials = () => {
             </div>
             <form onSubmit={handleSaveUsage} className="modal-form">
               <div className="form-group">
-                <label>Material</label>
-                <select required value={currentUsage.material} onChange={e => {
-                  const matName = e.target.value;
-                  const mat = materials.find(m => m.name === matName);
-                  setCurrentUsage({...currentUsage, material: matName, unit: mat ? mat.unit : currentUsage.unit, distributionRate: mat ? mat.purchaseAmount : currentUsage.distributionRate});
-                }}>
-                  <option value="">Select Material...</option>
-                  {materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                  <option value="Other">Other...</option>
-                </select>
+                <label>Material Name</label>
+                <input 
+                  required 
+                  type="text" 
+                  list="material-names-list"
+                  value={currentUsage.material} 
+                  onChange={e => {
+                    const matName = e.target.value;
+                    const mat = materials.find(m => m.name.toLowerCase() === matName.toLowerCase());
+                    setCurrentUsage({
+                      ...currentUsage, 
+                      material: matName, 
+                      unit: mat ? mat.unit : currentUsage.unit, 
+                      distributionRate: mat ? mat.purchaseAmount : currentUsage.distributionRate
+                    });
+                  }} 
+                  placeholder="Type or select material..." 
+                />
+                <datalist id="material-names-list">
+                  {materials.map((m, i) => <option key={i} value={m.name} />)}
+                </datalist>
               </div>
-              {currentUsage.material === 'Other' && (
-                <div className="form-group">
-                  <label>Custom Material Name</label>
-                  <input required type="text" onChange={e => setCurrentUsage({...currentUsage, material: e.target.value})} placeholder="Enter material name..." />
-                </div>
-              )}
               <div className="form-group">
                 <label>Site / Project</label>
-                <select required value={currentUsage.project} onChange={e => setCurrentUsage({...currentUsage, project: e.target.value})}>
-                  <option value="">Select Project...</option>
-                  {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                </select>
+                <input 
+                  required 
+                  type="text" 
+                  list="materials-project-list"
+                  value={currentUsage.project} 
+                  onChange={e => setCurrentUsage({...currentUsage, project: e.target.value})} 
+                  placeholder="Type or select project..." 
+                />
+                <datalist id="materials-project-list">
+                  {projects.map((p, i) => <option key={i} value={p.name} />)}
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Quantity Distributed</label>
-                <input required type="number" value={currentUsage.quantity} onChange={e => setCurrentUsage({...currentUsage, quantity: e.target.value})} placeholder="e.g. 50" />
+                <input required type="number" min="0" value={currentUsage.quantity} onChange={e => setCurrentUsage({...currentUsage, quantity: e.target.value})} placeholder="e.g. 50" />
               </div>
               <div className="form-group">
                 <label>Distribution Rate (₹)</label>
-                <input required type="number" value={currentUsage.distributionRate} onChange={e => setCurrentUsage({...currentUsage, distributionRate: e.target.value})} placeholder="e.g. 360" />
+                <input required type="number" min="0" value={currentUsage.distributionRate} onChange={e => setCurrentUsage({...currentUsage, distributionRate: e.target.value})} placeholder="e.g. 360" />
               </div>
               <div className="form-group">
                 <label>Date of Distribution</label>

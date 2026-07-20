@@ -31,6 +31,10 @@ const Finance = () => {
   // Add Income Handler
   const handleAddIncome = (e) => {
     e.preventDefault();
+    if (Number(newIncome.amount) < 0) {
+      alert('Amount Received cannot be negative.');
+      return;
+    }
     addIncomeAction({
       project: newIncome.project,
       amount: Number(newIncome.amount),
@@ -280,18 +284,24 @@ const Finance = () => {
             </div>
             <form onSubmit={handleAddIncome} className="modal-form">
               <div className="form-group">
-                <label>Site / Project</label>
-                <select required value={newIncome.project} onChange={e => setNewIncome({...newIncome, project: e.target.value})}>
-                  <option value="">Select Site...</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
+                <label>Site / Project Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  list="finance-project-list"
+                  value={newIncome.project} 
+                  onChange={e => setNewIncome({...newIncome, project: e.target.value})} 
+                  placeholder="Type or select site..."
+                />
+                <datalist id="finance-project-list">
+                  {projects.map((p, i) => <option key={i} value={p.name} />)}
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Amount Received (₹)</label>
                 <input 
                   type="number" 
+                  min="0"
                   required 
                   value={newIncome.amount} 
                   onChange={e => setNewIncome({...newIncome, amount: e.target.value})} 
