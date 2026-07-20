@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Cell
+  PieChart, Pie, Cell
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useCMS } from '../context/CMSContext';
@@ -24,71 +24,43 @@ const formatRupee = (amount) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { dashboardStats, workers, finances, dailyLogs, usageLogs, loading } = useCMS();
+  const { dashboardStats, projects, workers, finances, dailyLogs, usageLogs, loading } = useCMS();
 
-  // 1. Calculate Real Income vs Expense Bar Graph Data
-  const incomeVsExpenseData = useMemo(() => {
-    if (dashboardStats && dashboardStats.expenseData && dashboardStats.expenseData.length > 0) {
-      return dashboardStats.expenseData.map(item => ({
-        name: item.name,
-        Income: Number(item.income || 0),
-        Expense: Number(item.expense || 0)
-      }));
-    }
+  // 1. Calculate Real Income vs Expense Bar Graph Data using Original Project Values
+  const projectIncomeVsExpenseData = useMemo(() => {
+    if (projects && projects.length > 0) {
+      return projects.map(proj => {
+        const pName = proj.name;
+        // Sum Income for project
+        const incSum = (finances && finances.incomes) 
+          ? finances.incomes.filter(i => i.project === pName || (i.projectId && (i.projectId === proj.id || i.projectId === proj._id))).reduce((acc, i) => acc + Number(i.amount || 0), 0)
+          : Number(proj.collected || 0);
+        const income = incSum > 0 ? incSum : Number(proj.collected || 0);
 
-    // Dynamic aggregation fallback from state
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthMap = {};
-    months.forEach((m, idx) => {
-      monthMap[idx] = { name: m, Income: 0, Expense: 0 };
-    });
+        // Sum Expense for project (Labour + Material usage + Manual expenses)
+        const labourExpense = dailyLogs ? dailyLogs.filter(l => l.project === pName).reduce((acc, l) => acc + Number(l.wage || 0), 0) : 0;
+        const matExpense = usageLogs ? usageLogs.filter(u => u.project === pName).reduce((acc, u) => acc + (Number(u.quantity || 0) * Number(u.distributionRate || 0)), 0) : 0;
+        
+        const calcExpense = labourExpense + matExpense;
+        const expense = calcExpense > 0 ? calcExpense : Number(proj.spent || 0);
 
-    if (finances && finances.incomes) {
-      finances.incomes.forEach(inc => {
-        if (inc.date) {
-          const m = new Date(inc.date).getMonth();
-          if (monthMap[m]) monthMap[m].Income += Number(inc.amount || 0);
-        }
+        return {
+          name: pName.length > 12 ? pName.substring(0, 12) + '...' : pName,
+          fullName: pName,
+          Income: income,
+          Expense: expense
+        };
       });
     }
 
-    if (dailyLogs) {
-      dailyLogs.forEach(log => {
-        if (log.date) {
-          const m = new Date(log.date).getMonth();
-          if (monthMap[m]) monthMap[m].Expense += Number(log.wage || 0);
-        }
-      });
-    }
+    return [
+      { name: 'City Center', fullName: 'City Center Mall', Income: 12500000, Expense: 8900000 },
+      { name: 'Riverside Villa', fullName: 'Riverside Villa', Income: 6500000, Expense: 4200000 },
+      { name: 'Govt. Flyover', fullName: 'Govt. Flyover', Income: 21000000, Expense: 14800000 }
+    ];
+  }, [projects, finances, dailyLogs, usageLogs]);
 
-    if (usageLogs) {
-      usageLogs.forEach(u => {
-        if (u.date) {
-          const m = new Date(u.date).getMonth();
-          const cost = Number(u.quantity || 0) * Number(u.distributionRate || 0);
-          if (monthMap[m]) monthMap[m].Expense += cost;
-        }
-      });
-    }
-
-    const aggregated = Object.values(monthMap);
-    const hasData = aggregated.some(item => item.Income > 0 || item.Expense > 0);
-    
-    if (!hasData) {
-      return [
-        { name: 'Jan', Income: 450000, Expense: 280000 },
-        { name: 'Feb', Income: 620000, Expense: 340000 },
-        { name: 'Mar', Income: 890000, Expense: 510000 },
-        { name: 'Apr', Income: 750000, Expense: 420000 },
-        { name: 'May', Income: 980000, Expense: 610000 },
-        { name: 'Jun', Income: 1120000, Expense: 730000 }
-      ];
-    }
-
-    return aggregated.filter(m => m.Income > 0 || m.Expense > 0);
-  }, [dashboardStats, finances, dailyLogs, usageLogs]);
-
-  // 2. Calculate Labour Role Breakdown (Mason, Electrician, Plumber, Helper, Foreman)
+  // 2. Calculate Circular Labour Breakdown Data by Role Count (Mason, Electrician, Plumber, Helper, Foreman, Custom roles)
   const labourRoleData = useMemo(() => {
     const roleCounts = {};
 
@@ -111,6 +83,9 @@ const Dashboard = () => {
       'Electrician': '#ff7043',
       'Plumber': '#ff8a65',
       'Helper': '#ffab91',
+      'Carpenter': '#d84315',
+      'Welder': '#bf360c',
+      'Painter': '#f57c00',
       'Unspecified': '#8d6e63'
     };
 
@@ -183,41 +158,48 @@ const Dashboard = () => {
 
       {/* Main Charts Row */}
       <div className="dashboard-main-row" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
-        {/* Income vs Expense Bar Chart */}
+        {/* Project-Wise Income vs Expense Bar Chart */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1rem' }}>
-          <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>Income vs Expense Bar Chart</h3>
-          <div style={{ width: '100%', height: 260 }}>
+          <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>Project Income vs Expense Bar Chart</h3>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>Calculated using original project financial values</div>
+          <div style={{ width: '100%', height: 250 }}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <BarChart data={incomeVsExpenseData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+              <BarChart data={projectIncomeVsExpenseData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4dec8" />
                 <XAxis dataKey="name" stroke="#786c66" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="#786c66" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `${val/1000}K`} />
-                <Tooltip formatter={(value) => [formatRupee(value), '']} />
+                <Tooltip formatter={(value, name, item) => [formatRupee(value), `${name} (${item.payload.fullName || ''})`]} />
                 <Legend iconType="circle" verticalAlign="top" height={28} wrapperStyle={{ fontSize: '0.8rem' }} />
-                <Bar dataKey="Income" name="Total Income (₹)" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Expense" name="Total Expense (₹)" fill="#f4511e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Income" name="Project Income (₹)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Expense" name="Project Expense (₹)" fill="#f4511e" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Labour Role Counts Chart */}
+        {/* Circular Labour Breakdown Chart */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1rem' }}>
-          <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Labour Roster Breakdown by Type</h3>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>Count of active workers by designation (Mason, Electrician, Plumber, etc.)</div>
-          <div style={{ width: '100%', height: 230 }}>
+          <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>Labour Circular Graph (By Role)</h3>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Distribution of worker roles (Plumber, Electrician, Mason, etc.)</div>
+          <div style={{ width: '100%', height: 250 }}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <BarChart data={labourRoleData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4dec8" />
-                <XAxis type="number" stroke="#786c66" fontSize={10} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" stroke="#786c66" fontSize={11} width={80} tickLine={false} axisLine={false} />
-                <Tooltip formatter={(val) => [`${val} Workers`, 'Count']} />
-                <Bar dataKey="count" name="Worker Count" radius={[0, 4, 4, 0]}>
+              <PieChart>
+                <Pie
+                  data={labourRoleData}
+                  cx="50%"
+                  cy="45%"
+                  innerRadius="42%"
+                  outerRadius="72%"
+                  paddingAngle={3}
+                  dataKey="value"
+                >
                   {labourRoleData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
                   ))}
-                </Bar>
-              </BarChart>
+                </Pie>
+                <Tooltip formatter={(val) => [`${val} Workers`, 'Count']} />
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '0.78rem' }} />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>

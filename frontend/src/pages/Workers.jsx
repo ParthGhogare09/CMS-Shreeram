@@ -275,11 +275,9 @@ const Workers = () => {
             <label>Worker Role</label>
             <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
               <option value="All">All Roles</option>
-              <option value="Foreman">Foreman</option>
-              <option value="Mason">Mason</option>
-              <option value="Electrician">Electrician</option>
-              <option value="Plumber">Plumber</option>
-              <option value="Helper">Helper</option>
+              {Array.from(new Set(['Foreman', 'Mason', 'Electrician', 'Plumber', 'Helper', ...workers.map(w => w.role)])).filter(Boolean).map((role, idx) => (
+                <option key={idx} value={role}>{role}</option>
+              ))}
             </select>
           </div>
           <div className="form-group" style={{ marginTop: '1rem' }}>
@@ -1014,14 +1012,20 @@ const Workers = () => {
                 <input required type="text" value={currentWorker.name} onChange={e => setCurrentWorker({...currentWorker, name: e.target.value})} placeholder="e.g. Rajesh Kumar" />
               </div>
               <div className="form-group">
-                <label>Role</label>
-                <select value={currentWorker.role} onChange={e => setCurrentWorker({...currentWorker, role: e.target.value})}>
-                  <option value="Foreman">Foreman</option>
-                  <option value="Mason">Mason</option>
-                  <option value="Electrician">Electrician</option>
-                  <option value="Plumber">Plumber</option>
-                  <option value="Helper">Helper</option>
-                </select>
+                <label>Role / Designation (Type or Select)</label>
+                <input 
+                  required 
+                  type="text" 
+                  list="worker-role-suggestions-list" 
+                  value={currentWorker.role} 
+                  onChange={e => setCurrentWorker({...currentWorker, role: e.target.value})} 
+                  placeholder="Select or type custom role (e.g. Mason, Plumber, Welder...)" 
+                />
+                <datalist id="worker-role-suggestions-list">
+                  {Array.from(new Set(['Foreman', 'Mason', 'Electrician', 'Plumber', 'Helper', 'Carpenter', 'Welder', 'Painter', 'Driver', ...workers.map(w => w.role)])).filter(Boolean).map((role, idx) => (
+                    <option key={idx} value={role} />
+                  ))}
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Daily Wage (₹)</label>

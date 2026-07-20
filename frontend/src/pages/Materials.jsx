@@ -482,16 +482,20 @@ const Materials = () => {
                 <input required type="number" min="0" value={currentMaterial.stock} onChange={e => setCurrentMaterial({...currentMaterial, stock: e.target.value})} placeholder="e.g. 100" />
               </div>
               <div className="form-group">
-                <label>Unit (Indian Context)</label>
-                <select value={currentMaterial.unit} onChange={e => setCurrentMaterial({...currentMaterial, unit: e.target.value})}>
-                  <option value="Bags">Bags</option>
-                  <option value="Tons">Tons</option>
-                  <option value="Pallets">Pallets</option>
-                  <option value="Cubic Feet">Cubic Feet</option>
-                  <option value="Liters">Liters</option>
-                  <option value="Pieces">Pieces</option>
-                  <option value="Kg">Kg</option>
-                </select>
+                <label>Unit of Measurement (Type or Select)</label>
+                <input 
+                  required 
+                  type="text" 
+                  list="material-unit-suggestions-list" 
+                  value={currentMaterial.unit} 
+                  onChange={e => setCurrentMaterial({...currentMaterial, unit: e.target.value})} 
+                  placeholder="Select or type custom unit (e.g. Bags, Sq. Ft., Litres, Trucks...)" 
+                />
+                <datalist id="material-unit-suggestions-list">
+                  {Array.from(new Set(['Bags', 'Tons', 'Cubic Feet', 'Cum', 'Liters', 'Pieces', 'Kg', 'Boxes', 'Meters', 'Sq. Ft.', 'Trucks', 'Bundles', ...materials.map(m => m.unit)])).filter(Boolean).map((u, idx) => (
+                    <option key={idx} value={u} />
+                  ))}
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Purchase Rate (₹)</label>
