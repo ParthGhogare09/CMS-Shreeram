@@ -277,19 +277,27 @@ router.get('/projects/:id', async (req, res) => {
     ]);
     const collected = collectedResult.length > 0 ? collectedResult[0].total : 0;
 
-    // Fetch Worker Logs
-    const workerLogs = await WorkerLog.find({ project: project._id }).populate('worker');
-    const mappedLaborLogs = workerLogs.map(log => ({
-      id: log._id,
-      projectId: project._id,
-      type: 'Labor',
-      name: log.worker ? log.worker.name : 'Unknown',
-      role: log.roleAtTime || (log.worker ? log.worker.role : ''),
-      cost: log.wageAtTime,
-      amountPaid: log.amountPaid,
-      days: log.workTime === 'Half Day' ? 0.5 : log.workTime === 'Overtime' ? 1.5 : 1,
-      date: log.date
-    }));
+    // Fetch Worker Logs (deduplicating by worker + date)
+    const workerLogs = await WorkerLog.find({ project: project._id }).populate('worker').sort({ createdAt: -1 });
+    const seenLaborKeys = new Set();
+    const mappedLaborLogs = [];
+    for (const log of workerLogs) {
+      const key = `${log.worker ? log.worker._id : log._id}_${log.date}`;
+      if (!seenLaborKeys.has(key)) {
+        seenLaborKeys.add(key);
+        mappedLaborLogs.push({
+          id: log._id,
+          projectId: project._id,
+          type: 'Labor',
+          name: log.worker ? log.worker.name : 'Unknown',
+          role: log.roleAtTime || (log.worker ? log.worker.role : ''),
+          cost: log.wageAtTime,
+          amountPaid: log.amountPaid,
+          days: log.workTime === 'Half Day' ? 0.5 : log.workTime === 'Overtime' ? 1.5 : 1,
+          date: log.date
+        });
+      }
+    }
 
     // Fetch Material Usage Logs
     const materialLogs = await MaterialUsage.find({ project: project._id }).populate('material');
@@ -305,11 +313,12 @@ router.get('/projects/:id', async (req, res) => {
       date: log.date
     }));
 
-    // Fetch Finance Expenses (exclude Labor and Materials to avoid duplicate logs)
+    // Fetch Finance Expenses (strictly exclude Labor, Labour, Wages, and Materials to avoid duplicate logs)
     const financeExpenses = await Finance.find({ 
       project: project._id, 
       type: 'Expense',
-      category: { $nin: ['Labor', 'Materials'] }
+      category: { $nin: [/^labor$/i, /^labour$/i, /^materials$/i, /^wages$/i, /^labor wage$/i] },
+      description: { $not: /labor wage/i }
     });
     const mappedOtherLogs = financeExpenses.map(log => ({
       id: log._id,
@@ -375,29 +384,45 @@ router.post('/projects/:id/logs', async (req, res) => {
       if (paidNum === 0) payStatus = 'Pending';
       else if (paidNum < costNum) payStatus = 'Partial';
 
-      const newLog = new WorkerLog({
-        worker: worker._id,
-        project: projectId,
-        date: date,
-        roleAtTime: role || worker.role,
-        wageAtTime: costNum,
-        status: 'Present',
-        workTime: workTimeStr,
-        paymentStatus: payStatus,
-        amountPaid: paidNum
-      });
-      await newLog.save();
+      let newLog = await WorkerLog.findOne({ worker: worker._id, project: projectId, date: date });
+      if (newLog) {
+        newLog.wageAtTime = costNum;
+        newLog.workTime = workTimeStr;
+        newLog.paymentStatus = payStatus;
+        newLog.amountPaid = paidNum;
+        if (role) newLog.roleAtTime = role;
+        await newLog.save();
+      } else {
+        newLog = new WorkerLog({
+          worker: worker._id,
+          project: projectId,
+          date: date,
+          roleAtTime: role || worker.role,
+          wageAtTime: costNum,
+          status: 'Present',
+          workTime: workTimeStr,
+          paymentStatus: payStatus,
+          amountPaid: paidNum
+        });
+        await newLog.save();
+      }
 
-      // Record in finances as a labor expense
-      const financeLog = new Finance({
-        project: projectId,
-        amount: costNum,
-        type: 'Expense',
-        category: 'Labor',
-        description: `Labor wage for ${name}`,
-        date: date
-      });
-      await financeLog.save();
+      // Record / update in finances as a labor expense
+      let financeLog = await Finance.findOne({ project: projectId, date: date, category: 'Labor', description: new RegExp(name, 'i') });
+      if (financeLog) {
+        financeLog.amount = costNum;
+        await financeLog.save();
+      } else {
+        financeLog = new Finance({
+          project: projectId,
+          amount: costNum,
+          type: 'Expense',
+          category: 'Labor',
+          description: `Labor wage for ${name}`,
+          date: date
+        });
+        await financeLog.save();
+      }
 
       return res.status(201).json(newLog);
     } 

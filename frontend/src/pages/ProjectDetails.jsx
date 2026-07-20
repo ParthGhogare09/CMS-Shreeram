@@ -136,7 +136,16 @@ const ProjectDetails = () => {
     });
   };
 
-  const laborLogs = logs.filter(l => l.type === 'Labor');
+  const rawLaborLogs = logs.filter(l => l.type === 'Labor');
+  const seenLabor = new Set();
+  const laborLogs = [];
+  for (const log of rawLaborLogs) {
+    const key = `${(log.name || '').toLowerCase()}_${log.date}`;
+    if (!seenLabor.has(key)) {
+      seenLabor.add(key);
+      laborLogs.push(log);
+    }
+  }
   const materialLogs = logs.filter(l => l.type === 'Material' || l.type === 'Miscellaneous');
   const otherLogs = logs.filter(l => l.type === 'Transportation' || l.type === 'Rental');
 
