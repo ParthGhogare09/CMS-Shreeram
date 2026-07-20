@@ -8,9 +8,9 @@ const TopBar = ({ onMenuClick }) => {
         <button className="icon-btn mobile-menu-btn" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Building2 size={24} color="#f29b20" />
-          <h1 className="top-bar-title">Shreeram Construction</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <img src="/logo.png" alt="Shreeram Logo" style={{ height: '36px', objectFit: 'contain', backgroundColor: '#ffffff', borderRadius: '4px', padding: '2px' }} />
+          <h1 className="top-bar-title" style={{ fontSize: '1.05rem', fontWeight: 700 }}>Shreeram Construction & Government Contractor</h1>
         </div>
       </div>
       

@@ -31,11 +31,11 @@ const Login = () => {
       
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo-container">
-            <Building2 size={36} color="#f29b20" />
+          <div className="login-logo-container" style={{ backgroundColor: '#ffffff', padding: '0.5rem', borderRadius: '12px', display: 'inline-block', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <img src="/logo.png" alt="Shreeram Construction Logo" style={{ height: '70px', objectFit: 'contain' }} />
           </div>
-          <h1 className="login-title">Shreeram</h1>
-          <p className="login-subtitle">Construction Management Portal</p>
+          <h1 className="login-title" style={{ marginTop: '0.75rem', fontSize: '1.5rem', fontWeight: 800 }}>SHREERAM</h1>
+          <p className="login-subtitle" style={{ fontSize: '0.8rem', color: '#ffab91', fontWeight: 600 }}>CONSTRUCTION & GOVERNMENT CONTRACTOR</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

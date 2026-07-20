@@ -1,17 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Construction Theme Colors */
-  --color-primary: #f29b20; /* Construction Orange/Yellow */
-  --color-primary-hover: #d28519;
+  /* Brand Theme Colors from Logo (Saffron Orange & Construction Earth Brown) */
+  --color-primary: #f4511e; /* Saffron Orange from Logo */
+  --color-primary-hover: #d84315;
+  --color-primary-light: #fbe9e7;
   
-  --color-bg-base: #e2e8f0; /* Slightly Darker Gray-Blue Background */
+  --color-secondary: #4e342e; /* Earth Brown from Logo */
+  --color-secondary-hover: #3e2723;
+  --color-secondary-light: #efebe9;
+  
+  --color-bg-base: #f6f3ee; /* Warm Off-White Cream Background */
   --color-bg-surface: #ffffff; /* White Cards */
-  --color-bg-sidebar: #0f172a; /* Deep Navy Sidebar */
+  --color-bg-sidebar: #1f1b18; /* Rich Charcoal Brown Sidebar */
   
-  --color-text-main: #1e293b; /* Dark Slate text */
-  --color-text-muted: #64748b; /* Light Slate text */
-  --color-text-sidebar: #cbd5e1;
+  --color-text-main: #2b231f; /* Deep Earth Charcoal Text */
+  --color-text-muted: #786c66; /* Warm Gray-Brown Text */
+  --color-text-sidebar: #d7ccc8;
   --color-text-sidebar-active: #ffffff;
 
   --color-success: #10b981;
@@ -20,8 +25,8 @@
   --color-danger-bg: #fee2e2;
   --color-warning: #f59e0b;
   --color-warning-bg: #fef3c7;
-  --color-info: #3b82f6;
-  --color-info-bg: #dbeafe;
+  --color-info: #f4511e;
+  --color-info-bg: #fbe9e7;
 
   /* Typography */
   --font-family: 'Inter', sans-serif;
@@ -30,12 +35,12 @@
   --border-radius-sm: 8px;
   --border-radius-md: 12px;
   --border-radius-lg: 16px;
-  --border-color: #e2e8f0;
-  --border-sidebar: #1e293b;
+  --border-color: #e4dec8;
+  --border-sidebar: #2d2723;
   
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(31, 27, 24, 0.05);
+  --shadow-card: 0 4px 6px -1px rgba(31, 27, 24, 0.05), 0 2px 4px -1px rgba(31, 27, 24, 0.03);
+  --shadow-hover: 0 20px 25px -5px rgba(244, 81, 30, 0.15), 0 10px 10px -5px rgba(31, 27, 24, 0.04);
 
   /* Transitions */
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -569,14 +574,14 @@ td {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-info), #2563eb);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   color: #fff;
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(244, 81, 30, 0.3);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 10px 15px -3px rgba(244, 81, 30, 0.4);
 }
 
 .btn-primary:active {
@@ -741,9 +746,9 @@ td {
 }
 
 .nav-pill.active {
-  background: linear-gradient(135deg, var(--color-info), #2563eb);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   color: #fff;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 10px rgba(244, 81, 30, 0.3);
 }
 
 .labour-filter-bar {
@@ -1255,7 +1260,7 @@ td {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));
+  background: linear-gradient(135deg, rgba(31, 27, 24, 0.94), rgba(78, 52, 46, 0.85));
   z-index: 1;
 }
 
@@ -1263,14 +1268,14 @@ td {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 400px;
-  background: rgba(255, 255, 255, 0.1);
+  max-width: 420px;
+  background: rgba(31, 27, 24, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(244, 81, 30, 0.3);
   border-radius: var(--border-radius-lg, 16px);
   padding: 2.25rem 2rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
   text-align: center;
   color: #ffffff;
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1281,16 +1286,10 @@ td {
 }
 
 .login-logo-container {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1rem auto;
-  box-shadow: var(--shadow-sm);
 }
 
 .login-title {
@@ -1303,7 +1302,8 @@ td {
 
 .login-subtitle {
   font-size: 0.8rem;
-  color: #cbd5e1;
+  color: #ffab91;
+  font-weight: 600;
 }
 
 .login-form {
@@ -1334,7 +1334,7 @@ td {
 .login-input-group label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #d7ccc8;
 }
 
 .login-input-wrapper {
@@ -1346,7 +1346,7 @@ td {
 .login-input-icon {
   position: absolute;
   left: 12px;
-  color: #94a3b8;
+  color: #d7ccc8;
   pointer-events: none;
 }
 
@@ -1365,12 +1365,12 @@ td {
 .login-input-wrapper input:focus {
   outline: none;
   background: rgba(255, 255, 255, 0.15);
-  border-color: var(--color-primary, #f29b20);
-  box-shadow: 0 0 0 3px rgba(242, 155, 32, 0.2);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.25);
 }
 
 .login-input-wrapper input::placeholder {
-  color: #94a3b8;
+  color: #a1887f;
 }
 
 .password-toggle-btn {
@@ -1378,7 +1378,7 @@ td {
   right: 12px;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #d7ccc8;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1395,9 +1395,9 @@ td {
   padding: 0.65rem 1rem;
   font-weight: 700;
   margin-top: 0.5rem;
-  background: linear-gradient(135deg, var(--color-primary, #f29b20), #d28519);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(242, 155, 32, 0.3);
+  box-shadow: 0 4px 12px rgba(244, 81, 30, 0.4);
   border: none;
 }
 

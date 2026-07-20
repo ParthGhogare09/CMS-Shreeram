@@ -30,13 +30,25 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
-      <div className="sidebar-header" style={{ flexDirection: 'row', padding: isCollapsed ? '0' : '0 1.5rem', gap: '0.75rem', height: '80px', justifyContent: isCollapsed ? 'center' : 'flex-start', position: 'relative' }}>
-        <Building2 size={28} className="sidebar-logo-icon" color="#f29b20" style={{ margin: 0, flexShrink: 0 }} />
+      <div className="sidebar-header" style={{ flexDirection: 'row', padding: isCollapsed ? '0.5rem 0' : '0.5rem 1rem', gap: '0.75rem', height: '85px', justifyContent: isCollapsed ? 'center' : 'flex-start', position: 'relative' }}>
+        <img 
+          src="/logo.png" 
+          alt="Shreeram Construction Logo" 
+          style={{ 
+            height: isCollapsed ? '42px' : '46px', 
+            maxWidth: isCollapsed ? '42px' : '150px', 
+            objectFit: 'contain', 
+            backgroundColor: '#ffffff',
+            borderRadius: '6px',
+            padding: '2px',
+            flexShrink: 0 
+          }} 
+        />
         
         {!isCollapsed && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden' }}>
-            <h2 className="sidebar-title" style={{ fontSize: '1.15rem', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'left', margin: 0 }}>Shreeram</h2>
-            <span className="sidebar-subtitle" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'left' }}>Construction</span>
+            <h2 className="sidebar-title" style={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: '1.2', color: '#ffffff', margin: 0 }}>SHREERAM</h2>
+            <span className="sidebar-subtitle" style={{ fontSize: '0.68rem', color: '#ffab91', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'left', fontWeight: 600 }}>GOVT. CONTRACTOR</span>
           </div>
         )}
 
