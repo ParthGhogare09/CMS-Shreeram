@@ -18,6 +18,7 @@ const Projects = () => {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentProject, setCurrentProject] = useState({ id: '', name: '', client: '', budget: '', location: '', startDate: '', endDate: '', status: 'Active' });
+  const [projectSearch, setProjectSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
   if (loading) {
