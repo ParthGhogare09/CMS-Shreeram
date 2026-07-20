@@ -1421,6 +1421,13 @@ td {
   flex-wrap: wrap;
 }
 
+.action-toolbar-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .btn-filter-active {
   background-color: var(--color-info-bg) !important;
   color: var(--color-info) !important;
@@ -1439,6 +1446,38 @@ td {
   border: 1px solid #ffffff;
 }
 
+.labour-nav-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.labour-nav-pills .nav-pill {
+  flex: 1 1 auto;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: var(--border-radius-sm);
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--color-text-main);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.labour-nav-pills .nav-pill.active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Mobile Responsive Adjustments */
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -1446,22 +1485,81 @@ td {
     gap: 0.75rem;
   }
   
+  /* 2 cards per row on mobile for Labour Management & summary grids */
+  .dashboard-grid, .labour-dashboard .dashboard-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .labour-dashboard .summary-card, .dashboard-grid .summary-card {
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .labour-dashboard .summary-icon-box {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .labour-dashboard .summary-title {
+    font-size: 0.7rem !important;
+  }
+
+  .labour-dashboard .summary-value {
+    font-size: 1rem !important;
+  }
+
+  /* Nav pills displayed directly without horizontal scrolling */
+  .labour-nav-pills {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    gap: 0.35rem !important;
+  }
+
+  .labour-nav-pills .nav-pill {
+    flex: 1 1 calc(50% - 0.35rem) !important;
+    padding: 0.4rem 0.25rem !important;
+    font-size: 0.72rem !important;
+    text-align: center;
+  }
+
+  /* Toolbar layout: Search at top 100%, buttons in 1 single small row */
   .action-toolbar {
-    width: 100%;
-    justify-content: flex-start;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
   }
 
   .action-toolbar > div:first-child {
-    flex: 1 1 100%;
-    min-width: 100%;
+    width: 100% !important;
+    min-width: 100% !important;
   }
 
-  .action-toolbar .btn {
-    flex: 1 1 auto;
-    justify-content: center;
-    padding: 0.5rem 0.65rem;
-    font-size: 0.8rem;
+  .action-toolbar-buttons {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+    gap: 0.25rem !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .action-toolbar-buttons .btn {
+    flex: 1 1 0 !important;
+    padding: 0.45rem 0.2rem !important;
+    font-size: 0.72rem !important;
+    white-space: nowrap !important;
+    justify-content: center !important;
+    letter-spacing: -0.2px;
+  }
+
+  .action-toolbar-buttons .btn svg {
+    width: 12px !important;
+    height: 12px !important;
   }
 }
+
 
 

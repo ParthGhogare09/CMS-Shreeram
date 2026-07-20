@@ -216,47 +216,49 @@ const Workers = () => {
                 suggestions={workers.map(w => w.name)}
               />
             </div>
-            <button 
-              className={`btn btn-secondary ${isMasterFiltered ? 'btn-filter-active' : ''}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => setShowMasterFilterModal(true)}
-            >
-              <Filter size={14} /> Filter
-              {isMasterFiltered && <span className="filter-badge-dot" />}
-            </button>
-            {isMasterFiltered && (
+            <div className="action-toolbar-buttons">
               <button 
-                className="btn btn-secondary text-danger" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                onClick={() => { setRoleFilter('All'); setStatusFilter('All'); }}
-                title="Reset Filters"
+                className={`btn btn-secondary ${isMasterFiltered ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowMasterFilterModal(true)}
               >
-                <RotateCcw size={13} /> Reset
+                <Filter size={14} /> Filter
+                {isMasterFiltered && <span className="filter-badge-dot" />}
               </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredWorkers.map(w => ({
-                  'Worker ID': formatWorkerId(w.id || w._id),
-                  'Name': w.name,
-                  'Role': w.role,
-                  'Daily Rate (₹)': w.dailyWage || w.wage,
-                  'Contact': w.contactInfo || w.contact || '-',
-                  'Status': w.status
-                }));
-                exportToExcel(exportData, 'Workers_Master_Report');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="btn btn-primary" onClick={() => {
-              setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
-              setShowAddWorker(true);
-            }}>
-              <Plus size={16} /> Add Worker
-            </button>
+              {isMasterFiltered && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => { setRoleFilter('All'); setStatusFilter('All'); }}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredWorkers.map(w => ({
+                    'Worker ID': formatWorkerId(w.id || w._id),
+                    'Name': w.name,
+                    'Role': w.role,
+                    'Daily Rate (₹)': w.dailyWage || w.wage,
+                    'Contact': w.contactInfo || w.contact || '-',
+                    'Status': w.status
+                  }));
+                  exportToExcel(exportData, 'Workers_Master_Report');
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => {
+                setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
+                setShowAddWorker(true);
+              }}>
+                <Plus size={16} /> Add Worker
+              </button>
+            </div>
           </div>
         </div>
 
@@ -370,51 +372,53 @@ const Workers = () => {
                 suggestions={workers.map(w => w.name)}
               />
             </div>
-            <button 
-              className={`btn btn-secondary ${isLogFiltered ? 'btn-filter-active' : ''}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => setShowLogFilterModal(true)}
-            >
-              <Filter size={14} /> Filter
-              {isLogFiltered && <span className="filter-badge-dot" />}
-            </button>
-            {isLogFiltered && (
+            <div className="action-toolbar-buttons">
               <button 
-                className="btn btn-secondary text-danger" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                onClick={() => { setFilterDate(''); setFilterProject(''); setPaymentStatusFilter('All'); }}
-                title="Reset Filters"
+                className={`btn btn-secondary ${isLogFiltered ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowLogFilterModal(true)}
               >
-                <RotateCcw size={13} /> Reset
+                <Filter size={14} /> Filter
+                {isLogFiltered && <span className="filter-badge-dot" />}
               </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredLogs.map(log => ({
-                  'Date': formatDate(log.date),
-                  'Worker Name': log.name,
-                  'Project': log.project || '-',
-                  'Attendance Status': log.status,
-                  'Work Time': log.workTime,
-                  'Daily Rate (₹)': log.rate || log.wageAtTime,
-                  'Calculated Wage (₹)': log.wage || log.wageAtTime,
-                  'Paid (₹)': getAmountPaid(log),
-                  'Pending (₹)': getAmountPending(log),
-                  'Payment Status': log.paymentStatus
-                }));
-                exportToExcel(exportData, 'Daily_Attendance_Logs');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="btn btn-primary" onClick={() => {
-              setCurrentLog({ id: '', date: '', workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
-              setShowAddLog(true);
-            }}>
-              <Plus size={16} /> Add New Data
-            </button>
+              {isLogFiltered && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => { setFilterDate(''); setFilterProject(''); setPaymentStatusFilter('All'); }}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredLogs.map(log => ({
+                    'Date': formatDate(log.date),
+                    'Worker Name': log.name,
+                    'Project': log.project || '-',
+                    'Attendance Status': log.status,
+                    'Work Time': log.workTime,
+                    'Daily Rate (₹)': log.rate || log.wageAtTime,
+                    'Calculated Wage (₹)': log.wage || log.wageAtTime,
+                    'Paid (₹)': getAmountPaid(log),
+                    'Pending (₹)': getAmountPending(log),
+                    'Payment Status': log.paymentStatus
+                  }));
+                  exportToExcel(exportData, 'Daily_Attendance_Logs');
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => {
+                setCurrentLog({ id: '', date: '', workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
+                setShowAddLog(true);
+              }}>
+                <Plus size={16} /> Add New Data
+              </button>
+            </div>
           </div>
         </div>
 

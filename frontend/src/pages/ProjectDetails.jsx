@@ -301,46 +301,48 @@ const ProjectDetails = () => {
                   suggestions={laborLogs.map(l => l.name)}
                 />
               </div>
-              <button 
-                className={`btn btn-secondary ${laborPaymentFilter !== 'All' ? 'btn-filter-active' : ''}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                onClick={() => setShowLaborFilterModal(true)}
-              >
-                <Filter size={14} /> Filter
-                {laborPaymentFilter !== 'All' && <span className="filter-badge-dot" />}
-              </button>
-              {laborPaymentFilter !== 'All' && (
+              <div className="action-toolbar-buttons">
                 <button 
-                  className="btn btn-secondary text-danger" 
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                  onClick={() => setLaborPaymentFilter('All')}
-                  title="Reset Filters"
+                  className={`btn btn-secondary ${laborPaymentFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  onClick={() => setShowLaborFilterModal(true)}
                 >
-                  <RotateCcw size={13} /> Reset
+                  <Filter size={14} /> Filter
+                  {laborPaymentFilter !== 'All' && <span className="filter-badge-dot" />}
                 </button>
-              )}
-              <button 
-                className="btn btn-secondary" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                onClick={() => {
-                  const exportData = filteredLaborLogs.map(log => {
-                    const paid = log.amountPaid ?? log.cost;
-                    const pending = log.cost - paid;
-                    return {
-                      'Date': formatDate(log.date),
-                      'Worker Name': log.name,
-                      'Time Worked': `${log.days || 1} Days`,
-                      'Wage Incurred (₹)': log.cost,
-                      'Paid (₹)': paid,
-                      'Pending (₹)': pending,
-                      'Status': pending <= 0 ? 'Paid' : 'Pending'
-                    };
-                  });
-                  exportToExcel(exportData, `${project.name}_Labour_Details`);
-                }}
-              >
-                <Download size={14} /> Export Excel
-              </button>
+                {laborPaymentFilter !== 'All' && (
+                  <button 
+                    className="btn btn-secondary text-danger" 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                    onClick={() => setLaborPaymentFilter('All')}
+                    title="Reset Filters"
+                  >
+                    <RotateCcw size={13} /> Reset
+                  </button>
+                )}
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  onClick={() => {
+                    const exportData = filteredLaborLogs.map(log => {
+                      const paid = log.amountPaid ?? log.cost;
+                      const pending = log.cost - paid;
+                      return {
+                        'Date': formatDate(log.date),
+                        'Worker Name': log.name,
+                        'Time Worked': `${log.days || 1} Days`,
+                        'Wage Incurred (₹)': log.cost,
+                        'Paid (₹)': paid,
+                        'Pending (₹)': pending,
+                        'Status': pending <= 0 ? 'Paid' : 'Pending'
+                      };
+                    });
+                    exportToExcel(exportData, `${project.name}_Labour_Details`);
+                  }}
+                >
+                  <Download size={14} /> Export Excel
+                </button>
+              </div>
             </div>
           </div>
 

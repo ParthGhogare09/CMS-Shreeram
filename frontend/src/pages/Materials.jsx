@@ -161,47 +161,49 @@ const Materials = () => {
                 suggestions={materials.map(m => m.name)}
               />
             </div>
-            <button 
-              className={`btn btn-secondary ${stockStatusFilter !== 'All' ? 'btn-filter-active' : ''}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => setShowStockFilterModal(true)}
-            >
-              <Filter size={14} /> Filter
-              {stockStatusFilter !== 'All' && <span className="filter-badge-dot" />}
-            </button>
-            {stockStatusFilter !== 'All' && (
+            <div className="action-toolbar-buttons">
               <button 
-                className="btn btn-secondary text-danger" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                onClick={() => setStockStatusFilter('All')}
-                title="Reset Filters"
+                className={`btn btn-secondary ${stockStatusFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowStockFilterModal(true)}
               >
-                <RotateCcw size={13} /> Reset
+                <Filter size={14} /> Filter
+                {stockStatusFilter !== 'All' && <span className="filter-badge-dot" />}
               </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredMaterials.map(mat => ({
-                  'Material ID': formatMaterialId(mat.id || mat._id),
-                  'Material Name': mat.name,
-                  'Stock Available': mat.stock,
-                  'Unit': mat.unit,
-                  'Purchase Rate (₹)': mat.purchaseAmount,
-                  'Total Purchase Amount (₹)': (mat.stock || 0) * (mat.purchaseAmount || 0)
-                }));
-                exportToExcel(exportData, 'Materials_Stock_Report');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="btn btn-primary" onClick={() => {
-              setCurrentMaterial({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '' });
-              setShowAddMaterial(true);
-            }}>
-              <Plus size={16} /> Add Stock
-            </button>
+              {stockStatusFilter !== 'All' && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => setStockStatusFilter('All')}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredMaterials.map(mat => ({
+                    'Material ID': formatMaterialId(mat.id || mat._id),
+                    'Material Name': mat.name,
+                    'Stock Available': mat.stock,
+                    'Unit': mat.unit,
+                    'Purchase Rate (₹)': mat.purchaseAmount,
+                    'Total Purchase Amount (₹)': (mat.stock || 0) * (mat.purchaseAmount || 0)
+                  }));
+                  exportToExcel(exportData, 'Materials_Stock_Report');
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => {
+                setCurrentMaterial({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '' });
+                setShowAddMaterial(true);
+              }}>
+                <Plus size={16} /> Add Stock
+              </button>
+            </div>
           </div>
         </div>
 
@@ -292,49 +294,51 @@ const Materials = () => {
                 suggestions={materials.map(m => m.name)}
               />
             </div>
-            <button 
-              className={`btn btn-secondary ${usageProjectFilter !== 'All' ? 'btn-filter-active' : ''}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => setShowUsageFilterModal(true)}
-            >
-              <Filter size={14} /> Filter
-              {usageProjectFilter !== 'All' && <span className="filter-badge-dot" />}
-            </button>
-            {usageProjectFilter !== 'All' && (
+            <div className="action-toolbar-buttons">
               <button 
-                className="btn btn-secondary text-danger" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                onClick={() => setUsageProjectFilter('All')}
-                title="Reset Filters"
+                className={`btn btn-secondary ${usageProjectFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowUsageFilterModal(true)}
               >
-                <RotateCcw size={13} /> Reset
+                <Filter size={14} /> Filter
+                {usageProjectFilter !== 'All' && <span className="filter-badge-dot" />}
               </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredUsageLogs.map(log => ({
-                  'Log ID': formatMaterialId(log.id || log._id),
-                  'Material': log.material,
-                  'Site / Project': log.project,
-                  'Quantity Distributed': log.quantity,
-                  'Unit': log.unit,
-                  'Distribution Rate (₹)': log.distributionRate,
-                  'Total Distributed Amount (₹)': Number(log.distributionRate || 0) * Number(log.quantity || 0),
-                  'Date of Distribution': log.date
-                }));
-                exportToExcel(exportData, 'Material_Usage_Logs');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="btn btn-secondary" onClick={() => {
-              setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
-              setShowAddUsage(true);
-            }}>
-              <Truck size={16} /> Log Usage
-            </button>
+              {usageProjectFilter !== 'All' && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => setUsageProjectFilter('All')}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredUsageLogs.map(log => ({
+                    'Log ID': formatMaterialId(log.id || log._id),
+                    'Material': log.material,
+                    'Site / Project': log.project,
+                    'Quantity Distributed': log.quantity,
+                    'Unit': log.unit,
+                    'Distribution Rate (₹)': log.distributionRate,
+                    'Total Distributed Amount (₹)': Number(log.distributionRate || 0) * Number(log.quantity || 0),
+                    'Date of Distribution': log.date
+                  }));
+                  exportToExcel(exportData, 'Material_Usage_Logs');
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+              <button className="btn btn-secondary" onClick={() => {
+                setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+                setShowAddUsage(true);
+              }}>
+                <Truck size={16} /> Log Usage
+              </button>
+            </div>
           </div>
         </div>
 

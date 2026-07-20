@@ -47,48 +47,50 @@ const Projects = () => {
               suggestions={projects.map(p => p.name)}
             />
           </div>
-          <button 
-            className={`btn btn-secondary ${statusFilter !== 'All' ? 'btn-filter-active' : ''}`} 
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-            onClick={() => setShowFilterModal(true)}
-          >
-            <Filter size={14} /> Filter
-            {statusFilter !== 'All' && <span className="filter-badge-dot" />}
-          </button>
-          {statusFilter !== 'All' && (
+          <div className="action-toolbar-buttons">
             <button 
-              className="btn btn-secondary text-danger" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-              onClick={() => setStatusFilter('All')}
-              title="Reset Filters"
+              className={`btn btn-secondary ${statusFilter !== 'All' ? 'btn-filter-active' : ''}`} 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => setShowFilterModal(true)}
             >
-              <RotateCcw size={13} /> Reset
+              <Filter size={14} /> Filter
+              {statusFilter !== 'All' && <span className="filter-badge-dot" />}
             </button>
-          )}
-          <button 
-            className="btn btn-secondary" 
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-            onClick={() => {
-              const exportData = filteredProjects.map(p => ({
-                'Project ID': p.id || p._id,
-                'Project Name': p.name,
-                'Client Name': p.client,
-                'Location': p.location || '-',
-                'Total Budget (₹)': p.budget,
-                'Amount Collected (₹)': p.collected || 0,
-                'Amount Spent (₹)': p.spent || 0,
-                'Status': p.status || 'Active',
-                'Start Date': p.startDate || '-',
-                'End Date': p.endDate || '-'
-              }));
-              exportToExcel(exportData, 'Projects_Report');
-            }}
-          >
-            <Download size={14} /> Export Excel
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> New Project
-          </button>
+            {statusFilter !== 'All' && (
+              <button 
+                className="btn btn-secondary text-danger" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                onClick={() => setStatusFilter('All')}
+                title="Reset Filters"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            )}
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredProjects.map(p => ({
+                  'Project ID': p.id || p._id,
+                  'Project Name': p.name,
+                  'Client Name': p.client,
+                  'Location': p.location || '-',
+                  'Total Budget (₹)': p.budget,
+                  'Amount Collected (₹)': p.collected || 0,
+                  'Amount Spent (₹)': p.spent || 0,
+                  'Status': p.status || 'Active',
+                  'Start Date': p.startDate || '-',
+                  'End Date': p.endDate || '-'
+                }));
+                exportToExcel(exportData, 'Projects_Report');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={16} /> New Project
+            </button>
+          </div>
         </div>
       </div>
 

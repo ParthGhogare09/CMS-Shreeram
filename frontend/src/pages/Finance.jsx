@@ -122,42 +122,44 @@ const Finance = () => {
                 suggestions={projects.map(p => p.name)}
               />
             </div>
-            <button 
-              className={`btn btn-secondary ${paymentTypeFilter !== 'All' ? 'btn-filter-active' : ''}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => setShowIncomeFilterModal(true)}
-            >
-              <Filter size={14} /> Filter
-              {paymentTypeFilter !== 'All' && <span className="filter-badge-dot" />}
-            </button>
-            {paymentTypeFilter !== 'All' && (
+            <div className="action-toolbar-buttons">
               <button 
-                className="btn btn-secondary text-danger" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                onClick={() => setPaymentTypeFilter('All')}
-                title="Reset Filters"
+                className={`btn btn-secondary ${paymentTypeFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowIncomeFilterModal(true)}
               >
-                <RotateCcw size={13} /> Reset
+                <Filter size={14} /> Filter
+                {paymentTypeFilter !== 'All' && <span className="filter-badge-dot" />}
               </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredIncomes.map(inc => ({
-                  'Date': formatDate(inc.date),
-                  'Site / Project': inc.project,
-                  'Payment Type': inc.paymentType,
-                  'Amount Received (₹)': inc.amount
-                }));
-                exportToExcel(exportData, 'Site_Income_Report');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-            <button className="btn btn-primary" onClick={() => setShowAddIncome(true)}>
-              <Plus size={16} /> Add Income
-            </button>
+              {paymentTypeFilter !== 'All' && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => setPaymentTypeFilter('All')}
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredIncomes.map(inc => ({
+                    'Date': formatDate(inc.date),
+                    'Site / Project': inc.project,
+                    'Payment Type': inc.paymentType,
+                    'Amount Received (₹)': inc.amount
+                  }));
+                  exportToExcel(exportData, 'Site_Income_Report');
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowAddIncome(true)}>
+                <Plus size={16} /> Add Income
+              </button>
+            </div>
           </div>
         </div>
 
