@@ -136,7 +136,14 @@ const ProjectDetails = () => {
     });
   };
 
-  const rawLaborLogs = logs.filter(l => l.type === 'Labor');
+  const rawLaborLogs = logs.filter(l => {
+    if (l.type !== 'Labor') return false;
+    const nameLower = (l.name || '').toLowerCase();
+    if (nameLower.startsWith('labor wage') || nameLower.includes('labor wage:') || nameLower.includes('labor payout')) {
+      return false;
+    }
+    return true;
+  });
   const seenLabor = new Set();
   const laborLogs = [];
   for (const log of rawLaborLogs) {
