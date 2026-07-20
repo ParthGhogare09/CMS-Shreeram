@@ -395,20 +395,25 @@ const ProjectDetails = () => {
                           {status}
                         </span>
                       </td>
-                      <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}>
-                          <Edit size={14} /> Edit
+                      <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.35rem 0.45rem' }}
+                          title="Edit Entry"
+                        >
+                          <Edit size={14} />
                         </button>
                         <button 
-                          className="btn btn-danger" 
-                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          className="btn btn-secondary text-danger" 
+                          style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
+                          title="Delete Entry"
                           onClick={() => {
                             if (window.confirm("Are you sure you want to delete this labor entry?")) {
                               deleteWorkerLogAction(log.id || log._id).then(() => fetchProjectDetails());
                             }
                           }}
                         >
-                          <Trash2 size={14} /> Delete
+                          <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
@@ -490,13 +495,18 @@ const ProjectDetails = () => {
                       <td data-label="Distribution Rate">{formatRupee(rate)}</td>
                       <td data-label="Total Distributed Amount" className="text-danger" style={{ fontWeight: 600 }}>{formatRupee(log.cost)}</td>
                       <td data-label="Date of Distribution">{formatDate(log.date)}</td>
-                      <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}>
-                          <Edit size={14} /> Edit
+                      <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.35rem 0.45rem' }}
+                          title="Edit Entry"
+                        >
+                          <Edit size={14} />
                         </button>
                         <button 
-                          className="btn btn-danger" 
-                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          className="btn btn-secondary text-danger" 
+                          style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
+                          title="Delete Entry"
                           onClick={() => {
                             if (window.confirm(`Are you sure you want to delete this ${log.type.toLowerCase()} entry?`)) {
                               const action = log.type === 'Material' 
@@ -507,7 +517,7 @@ const ProjectDetails = () => {
                             }
                           }}
                         >
-                          <Trash2 size={14} /> Delete
+                          <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
@@ -524,8 +534,10 @@ const ProjectDetails = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Add Project Data</h2>
-              <button className="btn-close" onClick={() => setShowModal(false)}><X size={20} /></button>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Plus size={18} color="var(--color-info)" /> Add Site Log Data
+              </h2>
+              <button className="btn-close" onClick={() => setShowModal(false)}><X size={18} /></button>
             </div>
             <form onSubmit={handleAddData} className="modal-form">
               <div className="form-group">
@@ -704,9 +716,11 @@ const ProjectDetails = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Edit Project Details</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Edit size={18} color="var(--color-info)" /> Edit Project Details
+              </h2>
               <button className="btn-close" onClick={() => setShowEditModal(false)}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleEditProject} className="modal-form">

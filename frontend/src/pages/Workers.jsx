@@ -317,23 +317,29 @@ const Workers = () => {
                       {worker.status}
                     </span>
                   </td>
-                  <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
-                      setCurrentWorker(worker);
-                      setShowEditWorker(true);
-                    }}>
-                      <Edit size={14} /> Edit
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.35rem 0.45rem' }} 
+                      title="Edit Worker"
+                      onClick={() => {
+                        setCurrentWorker(worker);
+                        setShowEditWorker(true);
+                      }}
+                    >
+                      <Edit size={14} />
                     </button>
                     <button 
-                      className="btn btn-danger" 
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                      className="btn btn-secondary text-danger" 
+                      style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
+                      title="Delete Worker"
                       onClick={() => {
                         if (window.confirm(`Are you sure you want to delete worker "${worker.name}"? This will delete all attendance logs for this worker.`)) {
                           deleteWorkerAction(worker.id || worker._id);
                         }
                       }}
                     >
-                      <Trash2 size={14} /> Delete
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
@@ -494,24 +500,30 @@ const Workers = () => {
                       {log.paymentStatus}
                     </span>
                   </td>
-                  <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
-                      const w = workers.find(work => (work.id || work._id).toString() === (log.workerId || log.worker || '').toString());
-                      setCurrentLog({ ...log, workerName: log.name || (w ? w.name : ''), workerId: log.workerId || (w ? w.id || w._id : ''), amountPaid: getAmountPaid(log) });
-                      setShowEditLog(true);
-                    }}>
-                      <Edit size={14} /> Edit
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.35rem 0.45rem' }} 
+                      title="Edit Attendance Log"
+                      onClick={() => {
+                        const w = workers.find(work => (work.id || work._id).toString() === (log.workerId || log.worker || '').toString());
+                        setCurrentLog({ ...log, workerName: log.name || (w ? w.name : ''), workerId: log.workerId || (w ? w.id || w._id : ''), amountPaid: getAmountPaid(log) });
+                        setShowEditLog(true);
+                      }}
+                    >
+                      <Edit size={14} />
                     </button>
                     <button 
-                      className="btn btn-danger" 
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                      className="btn btn-secondary text-danger" 
+                      style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
+                      title="Delete Attendance Log"
                       onClick={() => {
                         if (window.confirm("Are you sure you want to delete this attendance log?")) {
                           deleteWorkerLogAction(log.id || log._id);
                         }
                       }}
                     >
-                      <Trash2 size={14} /> Delete
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
@@ -986,12 +998,14 @@ const Workers = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{showEditWorker ? 'Edit Worker' : 'Add New Worker'}</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                {showEditWorker ? <><Edit size={18} color="var(--color-info)" /> Edit Worker Details</> : <><Plus size={18} color="var(--color-info)" /> Add New Worker</>}
+              </h2>
               <button className="btn-close" onClick={() => {
                 setShowAddWorker(false);
                 setShowEditWorker(false);
               }}>
-                <X size={24} />
+                <X size={18} />
               </button>
             </div>
             <form className="modal-form" onSubmit={showEditWorker ? handleEditWorker : handleAddWorker}>
@@ -1042,12 +1056,14 @@ const Workers = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{showEditLog ? 'Edit Daily Log' : 'Add Daily Log'}</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                {showEditLog ? <><Edit size={18} color="var(--color-info)" /> Edit Daily Attendance Log</> : <><Plus size={18} color="var(--color-info)" /> Add Daily Attendance Log</>}
+              </h2>
               <button className="btn-close" onClick={() => {
                 setShowAddLog(false);
                 setShowEditLog(false);
               }}>
-                <X size={24} />
+                <X size={18} />
               </button>
             </div>
             <form className="modal-form" onSubmit={handleSaveLog}>

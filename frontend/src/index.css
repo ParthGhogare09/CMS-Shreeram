@@ -447,10 +447,27 @@ ul {
 /* Tables */
 .table-container {
   width: 100%;
+  max-height: 500px;
+  overflow-y: auto;
   overflow-x: auto;
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
   background: #fff;
+  scroll-behavior: smooth;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 table {
@@ -460,7 +477,7 @@ table {
 }
 
 th, td {
-  padding: 0.65rem 0.6rem;
+  padding: 0.45rem 0.55rem;
   text-align: left;
   border: 1px solid var(--border-color);
 }
@@ -469,9 +486,9 @@ th {
   background-color: var(--color-bg-sidebar);
   color: #f8fafc;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -488,7 +505,7 @@ tbody tr:hover {
 }
 
 td {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--color-text-main);
 }
 

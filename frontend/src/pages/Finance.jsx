@@ -209,15 +209,16 @@ const Finance = () => {
                   </td>
                   <td data-label="Actions">
                     <button 
-                      className="btn btn-danger" 
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      className="btn btn-secondary text-danger" 
+                      style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
+                      title="Delete Payment"
                       onClick={() => {
                         if (window.confirm("Are you sure you want to delete this incoming payment record?")) {
                           deleteFinanceAction(inc.id || inc._id);
                         }
                       }}
                     >
-                      <Trash2 size={14} /> Delete
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
@@ -374,9 +375,11 @@ const Finance = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Add Site Income</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Plus size={18} color="var(--color-info)" /> Add Site Payment Income
+              </h2>
               <button className="btn-close" onClick={() => setShowAddIncome(false)}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleAddIncome} className="modal-form">

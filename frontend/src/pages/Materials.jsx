@@ -289,23 +289,29 @@ const Materials = () => {
                     <td data-label="Unit">{mat.unit}</td>
                     <td data-label="Purchase Rate">₹{mat.purchaseAmount?.toLocaleString('en-IN') || 0}</td>
                     <td data-label="Total Purchase Amount" style={{ fontWeight: 600 }}>₹{((mat.stock || 0) * (mat.purchaseAmount || 0)).toLocaleString('en-IN')}</td>
-                    <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
-                      <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
-                        setCurrentMaterial(mat);
-                        setShowEditMaterial(true);
-                      }}>
-                        <Edit size={14} /> Edit
+                    <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.35rem 0.45rem' }} 
+                        title="Edit Stock Item"
+                        onClick={() => {
+                          setCurrentMaterial(mat);
+                          setShowEditMaterial(true);
+                        }}
+                      >
+                        <Edit size={14} />
                       </button>
                       <button 
-                        className="btn btn-danger" 
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                        className="btn btn-secondary text-danger" 
+                        style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
+                        title="Delete Stock Item"
                         onClick={() => {
                           if (window.confirm(`Are you sure you want to delete material "${mat.name}"? This will delete all usage logs for this material.`)) {
                             deleteMaterialAction(mat.id || mat._id);
                           }
                         }}
                       >
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -419,23 +425,29 @@ const Materials = () => {
                   <td data-label="Distribution Rate">₹{log.distributionRate?.toLocaleString('en-IN') || 0}</td>
                   <td data-label="Total Distributed Amount" style={{ fontWeight: 600 }}>₹{((log.quantity || 0) * (log.distributionRate || 0)).toLocaleString('en-IN')}</td>
                   <td data-label="Date">{formatDate(log.date)}</td>
-                  <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
-                      setCurrentUsage(log);
-                      setShowEditUsage(true);
-                    }}>
-                      <Edit size={14} /> Edit
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.35rem 0.45rem' }} 
+                      title="Edit Usage Log"
+                      onClick={() => {
+                        setCurrentUsage(log);
+                        setShowEditUsage(true);
+                      }}
+                    >
+                      <Edit size={14} />
                     </button>
                     <button 
-                      className="btn btn-danger" 
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }} 
+                      className="btn btn-secondary text-danger" 
+                      style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
+                      title="Delete Usage Log"
                       onClick={() => {
                         if (window.confirm("Are you sure you want to delete this material usage log? The stock level and finances will be adjusted back.")) {
                           deleteMaterialUsageAction(log.id || log._id);
                         }
                       }}
                     >
-                      <Trash2 size={14} /> Delete
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
@@ -453,9 +465,11 @@ const Materials = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{showEditMaterial ? 'Edit Material Stock' : 'Add Material Stock'}</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                {showEditMaterial ? <><Edit size={18} color="var(--color-info)" /> Edit Material Stock Item</> : <><Plus size={18} color="var(--color-info)" /> Add Material Stock Item</>}
+              </h2>
               <button className="btn-close" onClick={() => { setShowAddMaterial(false); setShowEditMaterial(false); }}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleSaveMaterial} className="modal-form">
@@ -497,9 +511,11 @@ const Materials = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{showEditUsage ? 'Edit Usage Log' : 'Add Usage Log'}</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                {showEditUsage ? <><Edit size={18} color="var(--color-info)" /> Edit Material Usage Log</> : <><Truck size={18} color="var(--color-info)" /> Log Material Usage to Site</>}
+              </h2>
               <button className="btn-close" onClick={() => { setShowAddUsage(false); setShowEditUsage(false); }}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleSaveUsage} className="modal-form">

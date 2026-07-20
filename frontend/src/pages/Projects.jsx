@@ -183,17 +183,18 @@ const Projects = () => {
                         {project.status}
                       </span>
                     </td>
-                    <td data-label="Actions" style={{ display: 'flex', gap: '0.5rem' }}>
+                    <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                       <button 
                         className="btn btn-secondary" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => navigate(`/projects/${project.id || project._id}`)}
                       >
-                        View Details
+                        View
                       </button>
                       <button 
                         className="btn btn-secondary" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        style={{ padding: '0.35rem 0.45rem' }}
+                        title="Edit Project"
                         onClick={() => {
                           setCurrentProject({
                             id: project.id || project._id,
@@ -208,18 +209,19 @@ const Projects = () => {
                           setShowEditModal(true);
                         }}
                       >
-                        <Edit size={14} /> Edit
+                        <Edit size={14} />
                       </button>
                       <button 
-                        className="btn btn-danger" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        className="btn btn-secondary text-danger" 
+                        style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
+                        title="Delete Project"
                         onClick={() => {
                           if (window.confirm(`Are you sure you want to delete "${project.name}"? This will delete all logs and finances for this project.`)) {
                             deleteProjectAction(project.id || project._id);
                           }
                         }}
                       >
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -237,9 +239,11 @@ const Projects = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Add New Project</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Plus size={18} color="var(--color-info)" /> Add New Site / Project
+              </h2>
               <button className="btn-close" onClick={() => setShowModal(false)}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleAddProject} className="modal-form">
@@ -322,9 +326,11 @@ const Projects = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Edit Project</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Edit size={18} color="var(--color-info)" /> Edit Site / Project Details
+              </h2>
               <button className="btn-close" onClick={() => setShowEditModal(false)}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleEditProject} className="modal-form">
