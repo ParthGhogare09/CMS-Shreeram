@@ -180,27 +180,49 @@ const Dashboard = () => {
         {/* Circular Labour Breakdown Chart */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1rem' }}>
           <h3 className="card-title" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>Labour Circular Graph (By Role)</h3>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Distribution of worker roles (Plumber, Electrician, Mason, etc.)</div>
-          <div style={{ width: '100%', height: 250 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Count of active workers by designation (Mason, Electrician, Plumber, etc.)</div>
+          <div style={{ width: '100%', height: 200 }}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={labourRoleData}
                   cx="50%"
-                  cy="45%"
-                  innerRadius="42%"
-                  outerRadius="72%"
+                  cy="50%"
+                  innerRadius="35%"
+                  outerRadius="60%"
                   paddingAngle={3}
                   dataKey="value"
+                  label={({ name, count }) => `${name}: ${count}`}
+                  labelLine={true}
                 >
                   {labourRoleData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(val) => [`${val} Workers`, 'Count']} />
-                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '0.78rem' }} />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+          {/* Clear Role & Count Badges */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'center', marginTop: '0.4rem' }}>
+            {labourRoleData.map((item, idx) => (
+              <span 
+                key={idx} 
+                style={{ 
+                  backgroundColor: item.color, 
+                  color: '#ffffff', 
+                  fontSize: '0.72rem', 
+                  fontWeight: 700, 
+                  padding: '0.2rem 0.55rem', 
+                  borderRadius: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                {item.name}: &nbsp;<strong>{item.count}</strong>
+              </span>
+            ))}
           </div>
         </div>
 
