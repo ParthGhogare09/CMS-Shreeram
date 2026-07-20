@@ -514,8 +514,22 @@ const ProjectDetails = () => {
                       placeholder="Type or select material name..." 
                     />
                     <datalist id="detail-materials-list">
-                      {materials.map((m, i) => <option key={i} value={m.name} />)}
+                      {materials.map((m, i) => (
+                        <option key={i} value={m.name}>Stock: {m.stock} {m.unit} | Rate: ₹{m.purchaseAmount}</option>
+                      ))}
                     </datalist>
+                    {formData.name && (() => {
+                      const matched = materials.find(m => m.name.toLowerCase() === formData.name.trim().toLowerCase());
+                      return matched ? (
+                        <span style={{ fontSize: '0.8rem', color: matched.stock > 0 ? '#10b981' : '#ef4444', marginTop: '0.35rem', display: 'block', fontWeight: 600 }}>
+                          Available Stock: {matched.stock} {matched.unit} | Purchase Rate: ₹{matched.purchaseAmount}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#f59e0b', marginTop: '0.35rem', display: 'block' }}>
+                          Material not found in stock. Add stock in Material Management first.
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                     <div style={{ flex: 1 }}>

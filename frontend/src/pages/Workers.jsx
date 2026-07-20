@@ -48,7 +48,7 @@ const Workers = () => {
   // Modals state for Log
   const [showAddLog, setShowAddLog] = useState(false);
   const [showEditLog, setShowEditLog] = useState(false);
-  const [currentLog, setCurrentLog] = useState({ id: '', date: '', workerId: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
+  const [currentLog, setCurrentLog] = useState({ id: '', date: '', workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
 
   // Daily Log state
   const [filterDate, setFilterDate] = useState('');
@@ -115,8 +115,14 @@ const Workers = () => {
 
   const handleSaveLog = (e) => {
     e.preventDefault();
-    const worker = workers.find(w => (w.id || w._id).toString() === currentLog.workerId.toString());
-    if (!worker) return;
+    const worker = workers.find(w => 
+      (currentLog.workerId && (w.id || w._id).toString() === currentLog.workerId.toString()) ||
+      (currentLog.workerName && w.name.toLowerCase() === currentLog.workerName.trim().toLowerCase())
+    );
+    if (!worker) {
+      alert('Please select or type a valid active worker from the list.');
+      return;
+    }
 
     let wageMultiplier = 1;
     if (currentLog.workTime === 'Half Day') wageMultiplier = 0.5;
@@ -167,7 +173,7 @@ const Workers = () => {
       addWorkerLogAction(logEntry);
       setShowAddLog(false);
     }
-    setCurrentLog({ id: '', date: '', workerId: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
+    setCurrentLog({ id: '', date: '', workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
   };
 
   if (loading) {
@@ -343,7 +349,8 @@ const Workers = () => {
                   </td>
                   <td data-label="Actions" style={{ display: 'flex', gap: '0.25rem' }}>
                     <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => {
-                      setCurrentLog({ ...log, amountPaid: getAmountPaid(log) });
+                      const w = workers.find(work => (work.id || work._id).toString() === (log.workerId || log.worker || '').toString());
+                      setCurrentLog({ ...log, workerName: log.name || (w ? w.name : ''), workerId: log.workerId || (w ? w.id || w._id : ''), amountPaid: getAmountPaid(log) });
                       setShowEditLog(true);
                     }}>
                       <Edit size={14} /> Edit
@@ -898,13 +905,31 @@ const Workers = () => {
             </div>
             <form className="modal-form" onSubmit={handleSaveLog}>
               <div className="form-group">
-                <label>Worker</label>
-                <select required value={currentLog.workerId} onChange={e => setCurrentLog({...currentLog, workerId: e.target.value})}>
-                  <option value="">Select Worker...</option>
-                  {workers.filter(w => w.status === 'Active' || (w.id || w._id).toString() === currentLog.workerId.toString()).map(w => (
-                    <option key={w.id || w._id} value={w.id || w._id}>{formatWorkerId(w.id || w._id)} - {w.name}</option>
+                <label>Labour Name</label>
+                <input 
+                  required 
+                  type="text" 
+                  list="daily-log-workers-list"
+                  value={currentLog.workerName || ''} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    const found = workers.find(w => 
+                      w.name.toLowerCase() === val.toLowerCase() || 
+                      `${w.name} (${formatWorkerId(w.id || w._id)})`.toLowerCase() === val.toLowerCase()
+                    );
+                    setCurrentLog({
+                      ...currentLog,
+                      workerName: val,
+                      workerId: found ? (found.id || found._id) : currentLog.workerId
+                    });
+                  }} 
+                  placeholder="Type to search or select labour name..." 
+                />
+                <datalist id="daily-log-workers-list">
+                  {workers.filter(w => w.status === 'Active' || (currentLog.workerId && (w.id || w._id).toString() === currentLog.workerId.toString())).map((w, i) => (
+                    <option key={i} value={w.name}>{formatWorkerId(w.id || w._id)} - {w.role} (Daily Wage: ₹{w.dailyWage || w.wage})</option>
                   ))}
-                </select>
+                </datalist>
               </div>
               <div className="form-group">
                 <label>Date</label>
