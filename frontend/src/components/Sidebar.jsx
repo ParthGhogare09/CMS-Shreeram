@@ -30,17 +30,19 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
-      <div className="sidebar-header" style={{ flexDirection: 'row', padding: isCollapsed ? '0.5rem 0' : '0.5rem 1rem', gap: '0.75rem', height: '85px', justifyContent: isCollapsed ? 'center' : 'flex-start', position: 'relative' }}>
+      <div className="sidebar-header" style={{ flexDirection: 'row', padding: isCollapsed ? '0.75rem 0' : '0.5rem 1rem', gap: '0.75rem', height: '85px', justifyContent: isCollapsed ? 'center' : 'flex-start', position: 'relative' }}>
         <img 
           src="/logo.png" 
           alt="Shreeram Construction Logo" 
           style={{ 
-            height: isCollapsed ? '42px' : '46px', 
-            maxWidth: isCollapsed ? '42px' : '150px', 
+            height: isCollapsed ? '52px' : '46px', 
+            width: isCollapsed ? '52px' : 'auto',
+            maxWidth: isCollapsed ? '52px' : '150px', 
             objectFit: 'contain', 
             backgroundColor: '#ffffff',
-            borderRadius: '6px',
-            padding: '2px',
+            borderRadius: '8px',
+            padding: '3px',
+            boxShadow: isCollapsed ? '0 4px 12px rgba(0,0,0,0.4)' : 'none',
             flexShrink: 0 
           }} 
         />
