@@ -22,6 +22,8 @@ const Materials = () => {
     projects,
     loading,
     saveMaterialAction,
+    editBatchAction,
+    deleteBatchAction,
     deleteMaterialAction,
     logMaterialUsageAction,
     deleteMaterialUsageAction
@@ -35,6 +37,10 @@ const Materials = () => {
   const [showAddMaterial, setShowAddMaterial] = useState(false);
   const [showEditMaterial, setShowEditMaterial] = useState(false);
   const [currentMaterial, setCurrentMaterial] = useState({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '', date: new Date().toISOString().split('T')[0] });
+
+  const [showEditBatch, setShowEditBatch] = useState(false);
+  const [selectedBatchIndex, setSelectedBatchIndex] = useState(null);
+  const [currentBatch, setCurrentBatch] = useState({ purchaseRate: '', purchaseDate: '', quantityPurchased: '' });
 
   const [showAddUsage, setShowAddUsage] = useState(false);
   const [showEditUsage, setShowEditUsage] = useState(false);
@@ -71,9 +77,44 @@ const Materials = () => {
     setCurrentMaterial({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '', date: new Date().toISOString().split('T')[0] });
   };
 
+  const handleSaveBatch = (e) => {
+    e.preventDefault();
+    if (Number(currentBatch.purchaseRate) < 0) {
+      alert('Purchase Rate cannot be negative.');
+      return;
+    }
+    if (Number(currentBatch.quantityPurchased) <= 0) {
+      alert('Purchased Quantity must be greater than 0.');
+      return;
+    }
+    editBatchAction(selectedMaterialId, selectedBatchIndex, {
+      purchaseRate: Number(currentBatch.purchaseRate),
+      purchaseDate: currentBatch.purchaseDate,
+      quantityPurchased: Number(currentBatch.quantityPurchased)
+    });
+    setShowEditBatch(false);
+    setSelectedBatchIndex(null);
+  };
+
   // Handlers for Material Usage
   const handleSaveUsage = (e) => {
     e.preventDefault();
+    if (projects.length === 0) {
+      alert('No site/project found. Please add a site/project first before logging material usage.');
+      return;
+    }
+
+    if (!currentUsage.project || !currentUsage.project.trim()) {
+      alert('Project / Site is required to log usage.');
+      return;
+    }
+
+    const projectObj = projects.find(p => p.name.toLowerCase() === currentUsage.project.trim().toLowerCase());
+    if (!projectObj) {
+      alert('Please select or type a valid active site/project from the list.');
+      return;
+    }
+
     const selectedMat = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').toLowerCase());
     const requestedQty = Number(currentUsage.quantity) || 0;
     const rate = Number(currentUsage.distributionRate) || 0;
@@ -147,6 +188,10 @@ const Materials = () => {
               <Plus size={16} /> Add Stock
             </button>
             <button className="btn btn-secondary" onClick={() => {
+              if (projects.length === 0) {
+                alert('No site/project found. Please add a site/project first before logging material usage.');
+                return;
+              }
               setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
               setShowAddUsage(true);
             }}>
@@ -363,6 +408,7 @@ const Materials = () => {
                         <th>Available Stock</th>
                         <th>Total Value (Available)</th>
                         <th>Status</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -379,11 +425,46 @@ const Materials = () => {
                               {b.quantityAvailable <= 0 ? 'Exhausted' : b.quantityAvailable < b.quantityPurchased ? 'Deducted' : 'Unused'}
                             </span>
                           </td>
+                          <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '0.35rem 0.45rem' }}
+                              title="Edit Batch"
+                              onClick={() => {
+                                setSelectedBatchIndex(idx);
+                                setCurrentBatch({
+                                  purchaseRate: b.purchaseRate,
+                                  purchaseDate: b.purchaseDate,
+                                  quantityPurchased: b.quantityPurchased
+                                });
+                                setShowEditBatch(true);
+                              }}
+                            >
+                              <Edit size={12} />
+                            </button>
+                            <button
+                              className="btn btn-secondary text-danger"
+                              style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
+                              title="Delete Batch"
+                              onClick={() => {
+                                const alreadyUsed = b.quantityPurchased - b.quantityAvailable;
+                                if (alreadyUsed > 0) {
+                                  alert(`Cannot delete batch — ${alreadyUsed} ${selectedMat.unit} has already been distributed from this batch.`);
+                                  return;
+                                }
+                                if (window.confirm(`Are you sure you want to delete Batch ${idx + 1}?`)) {
+                                  deleteBatchAction(selectedMat.id || selectedMat._id, idx);
+                                }
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                       {batches.length === 0 && (
                         <tr>
-                          <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>
                             No batch details found. (Fallback Rate: ₹{selectedMat.purchaseAmount} | Available: {selectedMat.stock} {selectedMat.unit})
                           </td>
                         </tr>
@@ -985,6 +1066,45 @@ const Materials = () => {
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => { setShowAddUsage(false); setShowEditUsage(false); }}>Cancel</button>
                 <button type="submit" className="btn btn-primary">{showEditUsage ? 'Update Log' : 'Save Log'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditBatch && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Edit size={18} color="var(--color-info)" /> Edit Batch Details
+              </h2>
+              <button className="btn-close" onClick={() => {
+                setShowEditBatch(false);
+                setSelectedBatchIndex(null);
+              }}>
+                <X size={18} />
+              </button>
+            </div>
+            <form className="modal-form" onSubmit={handleSaveBatch}>
+              <div className="form-group">
+                <label>Purchase Date</label>
+                <input required type="date" value={currentBatch.purchaseDate} onChange={e => setCurrentBatch({...currentBatch, purchaseDate: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Purchase Rate (₹)</label>
+                <input required type="number" min="0" value={currentBatch.purchaseRate} onChange={e => setCurrentBatch({...currentBatch, purchaseRate: e.target.value})} placeholder="e.g. 350" />
+              </div>
+              <div className="form-group">
+                <label>Quantity Purchased</label>
+                <input required type="number" min="1" value={currentBatch.quantityPurchased} onChange={e => setCurrentBatch({...currentBatch, quantityPurchased: e.target.value})} placeholder="e.g. 100" />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => {
+                  setShowEditBatch(false);
+                  setSelectedBatchIndex(null);
+                }}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
               </div>
             </form>
           </div>

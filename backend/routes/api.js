@@ -957,6 +957,91 @@ router.post('/materials', async (req, res) => {
   }
 });
 
+// Edit a specific batch of a material
+router.put('/materials/:id/batches/:batchIndex', async (req, res) => {
+  try {
+    const { purchaseRate, purchaseDate, quantityPurchased } = req.body;
+    const material = await Material.findById(req.params.id);
+    if (!material) return res.status(404).json({ error: 'Material not found' });
+
+    const idx = parseInt(req.params.batchIndex, 10);
+    if (isNaN(idx) || idx < 0 || idx >= material.batches.length) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const batch = material.batches[idx];
+    const oldPurchased = batch.quantityPurchased;
+    const oldAvailable = batch.quantityAvailable;
+    const alreadyUsed = oldPurchased - oldAvailable; // quantity consumed from this batch
+
+    const newPurchased = Number(quantityPurchased) || oldPurchased;
+    if (newPurchased < alreadyUsed) {
+      return res.status(400).json({ 
+        error: `Cannot reduce purchased quantity below ${alreadyUsed} (already consumed from this batch).` 
+      });
+    }
+
+    batch.purchaseRate = Number(purchaseRate) || batch.purchaseRate;
+    batch.purchaseDate = purchaseDate || batch.purchaseDate;
+    batch.quantityPurchased = newPurchased;
+    batch.quantityAvailable = newPurchased - alreadyUsed;
+
+    material.purchaseAmount = material.batches[material.batches.length - 1].purchaseRate;
+    material.stock = material.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+    await material.save();
+
+    res.json({
+      id: material._id,
+      name: material.name,
+      stock: material.stock,
+      unit: material.unit,
+      purchaseAmount: material.purchaseAmount,
+      batches: material.batches
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a specific batch of a material
+router.delete('/materials/:id/batches/:batchIndex', async (req, res) => {
+  try {
+    const material = await Material.findById(req.params.id);
+    if (!material) return res.status(404).json({ error: 'Material not found' });
+
+    const idx = parseInt(req.params.batchIndex, 10);
+    if (isNaN(idx) || idx < 0 || idx >= material.batches.length) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const batch = material.batches[idx];
+    const alreadyUsed = batch.quantityPurchased - batch.quantityAvailable;
+    if (alreadyUsed > 0) {
+      return res.status(400).json({
+        error: `Cannot delete batch — ${alreadyUsed} ${material.unit} has already been distributed from this batch.`
+      });
+    }
+
+    material.batches.splice(idx, 1);
+    material.stock = material.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+    if (material.batches.length > 0) {
+      material.purchaseAmount = material.batches[material.batches.length - 1].purchaseRate;
+    }
+    await material.save();
+
+    res.json({
+      id: material._id,
+      name: material.name,
+      stock: material.stock,
+      unit: material.unit,
+      purchaseAmount: material.purchaseAmount,
+      batches: material.batches
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Recent material usage logs
 router.get('/materials/usage', async (req, res) => {
   try {

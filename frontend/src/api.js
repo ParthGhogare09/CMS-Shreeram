@@ -23,6 +23,8 @@ export const updateWorkerLog = (id, logData) => API.put(`/workers/logs/${id}`, l
 
 export const getMaterials = () => API.get('/materials');
 export const saveMaterial = (materialData) => API.post('/materials', materialData);
+export const editMaterialBatch = (materialId, batchIndex, batchData) => API.put(`/materials/${materialId}/batches/${batchIndex}`, batchData);
+export const deleteMaterialBatch = (materialId, batchIndex) => API.delete(`/materials/${materialId}/batches/${batchIndex}`);
 export const getMaterialUsage = () => API.get('/materials/usage');
 export const logMaterialUsage = (usageData) => API.post('/materials/usage', usageData);
 

@@ -3,7 +3,7 @@ import {
   getProjects, createProject, updateProject, addProjectLog,
   getWorkers, createWorker, updateWorker,
   getWorkerLogs, createWorkerLog, updateWorkerLog,
-  getMaterials, saveMaterial, getMaterialUsage, logMaterialUsage,
+  getMaterials, saveMaterial, editMaterialBatch, deleteMaterialBatch, getMaterialUsage, logMaterialUsage,
   getFinances, addIncome, getDashboardStats,
   deleteProject, deleteWorker, deleteWorkerLog,
   deleteMaterial, deleteMaterialUsage, deleteFinance
@@ -656,6 +656,26 @@ export const CMSProvider = ({ children }) => {
     }
   };
 
+  const editBatchAction = async (materialId, batchIndex, batchData) => {
+    try {
+      await editMaterialBatch(materialId, batchIndex, batchData);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend editBatch failed:', err.message);
+      alert(err?.response?.data?.error || 'Failed to edit batch.');
+    }
+  };
+
+  const deleteBatchAction = async (materialId, batchIndex) => {
+    try {
+      await deleteMaterialBatch(materialId, batchIndex);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteBatch failed:', err.message);
+      alert(err?.response?.data?.error || 'Failed to delete batch.');
+    }
+  };
+
   const deleteFinanceAction = async (id) => {
     try {
       await deleteFinance(id);
@@ -692,6 +712,8 @@ export const CMSProvider = ({ children }) => {
       updateWorkerLogAction,
       deleteWorkerLogAction,
       saveMaterialAction,
+      editBatchAction,
+      deleteBatchAction,
       deleteMaterialAction,
       logMaterialUsageAction,
       deleteMaterialUsageAction,
