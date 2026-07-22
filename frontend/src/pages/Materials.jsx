@@ -899,7 +899,14 @@ const Materials = () => {
               {/* Batch Autofill Section */}
               {(() => {
                 const matched = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').trim().toLowerCase());
-                const activeBatches = matched ? (matched.batches || []).filter(b => b.quantityAvailable > 0) : [];
+                let activeBatches = matched ? (matched.batches || []).filter(b => b.quantityAvailable > 0) : [];
+                if (matched && activeBatches.length === 0 && matched.stock > 0) {
+                  activeBatches = [{
+                    purchaseRate: matched.purchaseAmount,
+                    quantityAvailable: matched.stock,
+                    purchaseDate: 'Historic'
+                  }];
+                }
                 if (activeBatches.length > 0) {
                   return (
                     <div className="form-group">

@@ -10,31 +10,47 @@ const Material = require('../models/Material');
 const MaterialUsage = require('../models/MaterialUsage');
 const Finance = require('../models/Finance');
 
-// Helper: Find project by ID or Name
-async function resolveProject(projectRef) {
-  if (!projectRef) return null;
-  if (mongoose.Types.ObjectId.isValid(projectRef)) {
-    return await Project.findById(projectRef);
-  }
-  return await Project.findOne({ name: projectRef });
-}
-
-// Helper: Find worker by ID or Name
-async function resolveWorker(workerRef) {
-  if (!workerRef) return null;
-  if (mongoose.Types.ObjectId.isValid(workerRef)) {
-    return await Worker.findById(workerRef);
-  }
-  return await Worker.findOne({ name: workerRef });
-}
-
-// Helper: Find material by ID or Name
+// Helper: Find material by ID or Name (case-insensitive)
 async function resolveMaterial(materialRef) {
   if (!materialRef) return null;
   if (mongoose.Types.ObjectId.isValid(materialRef)) {
     return await Material.findById(materialRef);
   }
-  return await Material.findOne({ name: materialRef });
+  // Try exact lookup first
+  let mat = await Material.findOne({ name: materialRef });
+  if (mat) return mat;
+
+  // Try title case normalized lookup
+  const normalizedName = materialRef.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+  mat = await Material.findOne({ name: normalizedName });
+  if (mat) return mat;
+
+  // Case-insensitive regex search
+  return await Material.findOne({ name: new RegExp('^' + materialRef.trim() + '$', 'i') });
+}
+
+// Helper: Find project by ID or Name (case-insensitive)
+async function resolveProject(projectRef) {
+  if (!projectRef) return null;
+  if (mongoose.Types.ObjectId.isValid(projectRef)) {
+    return await Project.findById(projectRef);
+  }
+  let proj = await Project.findOne({ name: projectRef });
+  if (proj) return proj;
+
+  return await Project.findOne({ name: new RegExp('^' + projectRef.trim() + '$', 'i') });
+}
+
+// Helper: Find worker by ID or Name (case-insensitive)
+async function resolveWorker(workerRef) {
+  if (!workerRef) return null;
+  if (mongoose.Types.ObjectId.isValid(workerRef)) {
+    return await Worker.findById(workerRef);
+  }
+  let worker = await Worker.findOne({ name: workerRef });
+  if (worker) return worker;
+
+  return await Worker.findOne({ name: new RegExp('^' + workerRef.trim() + '$', 'i') });
 }
 
 // ==========================================
