@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, LogOut, Building2 } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 const TopBar = ({ onMenuClick }) => {
   return (
@@ -22,11 +22,6 @@ const TopBar = ({ onMenuClick }) => {
       </div>
       
       <div className="top-bar-right">
-        <button className="btn" style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', backgroundColor: 'transparent', fontWeight: 500, borderRadius: 'var(--border-radius-sm)' }}>
-          <LogOut size={16} /> Logout
-        </button>
-        
-
       </div>
     </div>
   );
