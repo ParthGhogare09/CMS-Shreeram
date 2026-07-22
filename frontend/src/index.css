@@ -359,7 +359,7 @@ ul {
   border: 1px solid var(--border-color);
   transition: var(--transition-normal);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .card::after {
@@ -372,6 +372,8 @@ ul {
   background: linear-gradient(90deg, var(--color-info), var(--color-primary));
   opacity: 0;
   transition: opacity 0.3s ease;
+  border-top-left-radius: var(--border-radius-md);
+  border-top-right-radius: var(--border-radius-md);
 }
 
 .card:hover {
