@@ -538,11 +538,11 @@ td {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0.45rem 1rem;
+  gap: 5px;
+  padding: 0.35rem 0.75rem;
   border-radius: var(--border-radius-md);
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
@@ -694,12 +694,12 @@ td {
 .form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.9rem;}
 .form-group label { font-size: 0.82rem; font-weight: 600; color: var(--color-text-main); }
 .form-group input, .form-group select {
-  padding: 0.45rem 0.75rem;
+  padding: 0.35rem 0.6rem;
   background-color: #f8fafc;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-sm);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: var(--color-text-main);
   transition: var(--transition-fast);
 }
@@ -755,22 +755,22 @@ td {
 .labour-filter-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
   align-items: center;
   background-color: #f8fafc;
-  padding: 1.25rem;
+  padding: 0.6rem 1rem;
   border-radius: var(--border-radius-md);
   border: 1px solid var(--border-color);
 }
 
 .labour-filter-bar input,
 .labour-filter-bar select {
-  padding: 0.75rem 1.25rem;
+  padding: 0.35rem 0.65rem;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-sm);
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   outline: none;
   background: #fff;
   transition: var(--transition-fast);
@@ -1574,15 +1574,17 @@ td {
   .action-toolbar-buttons .btn {
     flex: 1 1 0 !important;
     padding: 0.45rem 0.2rem !important;
-    font-size: 0.72rem !important;
+    font-size: 0 !important; /* Hide text, show only icon */
+    gap: 0 !important;
     white-space: nowrap !important;
     justify-content: center !important;
     letter-spacing: -0.2px;
   }
 
   .action-toolbar-buttons .btn svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
   }
 }
 
