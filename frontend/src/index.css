@@ -1495,6 +1495,12 @@ td {
   font-weight: 600;
 }
 
+.date-range-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
 /* Mobile Responsive Adjustments */
 @media (max-width: 768px) {
   .page-header {
@@ -1587,28 +1593,42 @@ td {
     margin: 0 !important;
   }
 
-  /* Monthly Summary filter bar grid and spacing optimizations on mobile */
-  .labour-filter-bar {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.5rem !important;
-    padding: 0.6rem !important;
-    margin-bottom: 1rem !important;
+  /* Date range row for side-by-side inputs */
+  .date-range-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
   }
 
-  /* Stack filters in single column on narrow mobile screens to avoid date overlap */
-  @media (max-width: 560px) {
-    .labour-filter-bar {
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: stretch !important;
-      gap: 0.65rem !important;
-    }
+  /* Monthly Summary filter bar mobile view optimizations */
+  .labour-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+    padding: 0.6rem !important;
+    margin-bottom: 1rem !important;
   }
   
   .labour-filter-bar .form-group {
     width: 100% !important;
     margin: 0 !important;
+  }
+
+  .date-range-row {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .date-range-row .form-group {
+    flex: 1 !important;
+  }
+
+  /* Hide calendar icons in date range inputs on mobile to save layout space */
+  .date-range-row .date-calendar-icon {
+    display: none !important;
   }
 
   .labour-filter-bar .form-group div {
@@ -1625,7 +1645,6 @@ td {
   }
 
   .labour-filter-bar .form-group:last-child {
-    grid-column: span 2 !important;
     margin-left: 0 !important;
     width: 100% !important;
   }

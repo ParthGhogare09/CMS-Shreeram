@@ -931,11 +931,11 @@ const Workers = () => {
               </div>
             </div>
           ) : (
-            <>
+            <div className="date-range-row">
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Start Date</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={16} color="var(--color-text-muted)" />
+                  <Calendar size={16} color="var(--color-text-muted)" className="date-calendar-icon" />
                   <input 
                     type="date" 
                     value={summaryStartDate} 
@@ -947,7 +947,7 @@ const Workers = () => {
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>End Date</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={16} color="var(--color-text-muted)" />
+                  <Calendar size={16} color="var(--color-text-muted)" className="date-calendar-icon" />
                   <input 
                     type="date" 
                     value={summaryEndDate} 
@@ -956,7 +956,7 @@ const Workers = () => {
                   />
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           <div className="form-group" style={{ margin: 0, marginLeft: 'auto', width: '250px' }}>
