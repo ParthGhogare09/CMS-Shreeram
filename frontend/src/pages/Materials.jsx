@@ -431,15 +431,58 @@ const Materials = () => {
                     className="btn btn-secondary" 
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                     onClick={() => {
-                      const exportData = filteredMaterials.map(mat => ({
-                        'Material ID': formatMaterialId(mat.id || mat._id),
-                        'Material Name': mat.name,
-                        'Stock Available': mat.stock,
-                        'Unit': mat.unit,
-                        'Latest Purchase Rate (₹)': mat.purchaseAmount,
-                        'Total Stock Value (₹)': mat.stock * mat.purchaseAmount
+                      const materialBatchRows = [];
+                      materials.forEach(mat => {
+                        const batches = mat.batches || [];
+                        if (batches.length > 0) {
+                          batches.forEach((b, idx) => {
+                            materialBatchRows.push({
+                              id: `${mat.id || mat._id}-B${idx + 1}`,
+                              rawName: mat.name,
+                              name: `${mat.name} (Batch ${idx + 1})`,
+                              stock: b.quantityAvailable,
+                              purchasedStock: b.quantityPurchased,
+                              unit: mat.unit,
+                              purchaseRate: b.purchaseRate,
+                              purchaseDate: b.purchaseDate,
+                              totalValue: b.quantityAvailable * b.purchaseRate
+                            });
+                          });
+                        } else {
+                          materialBatchRows.push({
+                            id: `${mat.id || mat._id}-B1`,
+                            rawName: mat.name,
+                            name: `${mat.name} (Batch 1)`,
+                            stock: mat.stock || 0,
+                            purchasedStock: mat.stock || 0,
+                            unit: mat.unit,
+                            purchaseRate: mat.purchaseAmount || 0,
+                            purchaseDate: 'Historic',
+                            totalValue: (mat.stock || 0) * (mat.purchaseAmount || 0)
+                          });
+                        }
+                      });
+                      const filteredBatchRows = materialBatchRows.filter(row => {
+                        const matchesSearch = row.rawName.toLowerCase().includes(materialSearch.toLowerCase());
+                        let matchesStock = true;
+                        if (stockStatusFilter === 'Low Stock') matchesStock = row.stock > 0 && row.stock < 50;
+                        if (stockStatusFilter === 'In Stock') matchesStock = row.stock >= 50;
+                        if (stockStatusFilter === 'Out of Stock') matchesStock = row.stock <= 0;
+                        return matchesSearch && matchesStock;
+                      });
+
+                      const exportData = filteredBatchRows.map(row => ({
+                        'Batch ID': row.id,
+                        'Material Name': row.rawName,
+                        'Batch Ref': row.name,
+                        'Purchase Date': row.purchaseDate,
+                        'Purchase Rate (₹)': row.purchaseRate,
+                        'Quantity Purchased': row.purchasedStock,
+                        'Stock Available': row.stock,
+                        'Unit': row.unit,
+                        'Total Value (Available) (₹)': row.totalValue
                       }));
-                      exportToExcel(exportData, 'Materials_Stock_Report');
+                      exportToExcel(exportData, 'Materials_Detailed_Stock_Report');
                     }}
                   >
                     <Download size={14} /> Export Excel
@@ -469,31 +512,74 @@ const Materials = () => {
               <table>
                 <thead>
                   <tr>
-                    <th>Material ID</th>
-                    <th>Name</th>
-                    <th>Stock Available</th>
-                    <th>Purchased Stock</th>
+                    <th>Batch ID</th>
+                    <th>Material Name</th>
+                    <th>Purchase Date</th>
+                    <th>Purchase Rate (₹)</th>
+                    <th>Purchased Qty</th>
+                    <th>Available Stock</th>
                     <th>Unit</th>
-                    <th>Latest Purchase Rate (₹)</th>
                     <th>Total Value (Available)</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMaterials.map(mat => {
-                    const usages = usageLogs.filter(u => u.material === mat.name);
-                    const distQty = usages.reduce((sum, u) => sum + Number(u.quantity || 0), 0);
-                    const purchasedStock = (mat.stock || 0) + distQty;
+                  {(() => {
+                    const materialBatchRows = [];
+                    materials.forEach(mat => {
+                      const batches = mat.batches || [];
+                      if (batches.length > 0) {
+                        batches.forEach((b, idx) => {
+                          materialBatchRows.push({
+                            id: `${mat.id || mat._id}-B${idx + 1}`,
+                            materialId: mat.id || mat._id,
+                            name: `${mat.name} (Batch ${idx + 1})`,
+                            rawName: mat.name,
+                            stock: b.quantityAvailable,
+                            purchasedStock: b.quantityPurchased,
+                            unit: mat.unit,
+                            purchaseRate: b.purchaseRate,
+                            purchaseDate: b.purchaseDate,
+                            totalValue: b.quantityAvailable * b.purchaseRate,
+                            fullMaterial: mat
+                          });
+                        });
+                      } else {
+                        materialBatchRows.push({
+                          id: `${mat.id || mat._id}-B1`,
+                          materialId: mat.id || mat._id,
+                          name: `${mat.name} (Batch 1)`,
+                          rawName: mat.name,
+                          stock: mat.stock || 0,
+                          purchasedStock: mat.stock || 0,
+                          unit: mat.unit,
+                          purchaseRate: mat.purchaseAmount || 0,
+                          purchaseDate: 'Historic',
+                          totalValue: (mat.stock || 0) * (mat.purchaseAmount || 0),
+                          fullMaterial: mat
+                        });
+                      }
+                    });
 
-                    return (
-                      <tr key={mat.id || mat._id}>
-                        <td data-label="Material ID">{formatMaterialId(mat.id || mat._id)}</td>
-                        <td data-label="Name" style={{ fontWeight: 600 }}>{mat.name}</td>
-                        <td data-label="Stock Available">{mat.stock}</td>
-                        <td data-label="Purchased Stock" style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{purchasedStock}</td>
-                        <td data-label="Unit">{mat.unit}</td>
-                        <td data-label="Purchase Rate">₹{mat.purchaseAmount?.toLocaleString('en-IN') || 0}</td>
-                        <td data-label="Total Purchase Amount" style={{ fontWeight: 600 }}>₹{((mat.stock || 0) * (mat.purchaseAmount || 0)).toLocaleString('en-IN')}</td>
+                    const filteredBatchRows = materialBatchRows.filter(row => {
+                      const matchesSearch = row.rawName.toLowerCase().includes(materialSearch.toLowerCase());
+                      let matchesStock = true;
+                      if (stockStatusFilter === 'Low Stock') matchesStock = row.stock > 0 && row.stock < 50;
+                      if (stockStatusFilter === 'In Stock') matchesStock = row.stock >= 50;
+                      if (stockStatusFilter === 'Out of Stock') matchesStock = row.stock <= 0;
+                      return matchesSearch && matchesStock;
+                    });
+
+                    return filteredBatchRows.map(row => (
+                      <tr key={row.id}>
+                        <td data-label="Batch ID">{String(row.id).slice(-8)}</td>
+                        <td data-label="Material Name" style={{ fontWeight: 600 }}>{row.name}</td>
+                        <td data-label="Purchase Date">{row.purchaseDate === 'Historic' ? 'Historic' : formatDate(row.purchaseDate)}</td>
+                        <td data-label="Purchase Rate">₹{row.purchaseRate?.toLocaleString('en-IN') || 0}</td>
+                        <td data-label="Purchased Qty">{row.purchasedStock}</td>
+                        <td data-label="Available Stock" style={{ fontWeight: 700, color: row.stock <= 0 ? 'var(--color-danger)' : 'var(--color-text-main)' }}>{row.stock}</td>
+                        <td data-label="Unit">{row.unit}</td>
+                        <td data-label="Total Value" style={{ fontWeight: 600 }}>₹{row.totalValue.toLocaleString('en-IN')}</td>
                         <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                           <button 
                             className="btn btn-secondary" 
@@ -501,9 +587,10 @@ const Materials = () => {
                             title="Edit Stock Item"
                             onClick={() => {
                               setCurrentMaterial({
-                                ...mat,
-                                id: mat.id || mat._id,
-                                stock: '', // Clear count so they add new batch rather than overwriting
+                                ...row.fullMaterial,
+                                id: row.materialId,
+                                stock: '', // Clear so they add new batch rather than overwriting
+                                purchaseAmount: row.purchaseRate,
                                 date: new Date().toISOString().split('T')[0]
                               });
                               setShowEditMaterial(true);
@@ -513,11 +600,38 @@ const Materials = () => {
                           </button>
                         </td>
                       </tr>
+                    ));
+                  })()}
+                  {(() => {
+                    const materialBatchRows = [];
+                    materials.forEach(mat => {
+                      const batches = mat.batches || [];
+                      if (batches.length > 0) {
+                        batches.forEach((b, idx) => {
+                          materialBatchRows.push({
+                            rawName: mat.name,
+                            stock: b.quantityAvailable
+                          });
+                        });
+                      } else {
+                        materialBatchRows.push({
+                          rawName: mat.name,
+                          stock: mat.stock || 0
+                        });
+                      }
+                    });
+                    const filteredBatchRows = materialBatchRows.filter(row => {
+                      const matchesSearch = row.rawName.toLowerCase().includes(materialSearch.toLowerCase());
+                      let matchesStock = true;
+                      if (stockStatusFilter === 'Low Stock') matchesStock = row.stock > 0 && row.stock < 50;
+                      if (stockStatusFilter === 'In Stock') matchesStock = row.stock >= 50;
+                      if (stockStatusFilter === 'Out of Stock') matchesStock = row.stock <= 0;
+                      return matchesSearch && matchesStock;
+                    });
+                    return filteredBatchRows.length === 0 && (
+                      <tr><td colSpan="9" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No material stock batches found.</td></tr>
                     );
-                  })}
-                  {filteredMaterials.length === 0 && (
-                    <tr><td colSpan="8" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No materials found.</td></tr>
-                  )}
+                  })()}
                 </tbody>
               </table>
             </div>
