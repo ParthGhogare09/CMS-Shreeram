@@ -642,7 +642,39 @@ const Workers = () => {
               </div>
             </div>
 
-            <h3 className="card-title" style={{ fontSize: '1rem', marginTop: '2rem' }}>Work History</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 className="card-title" style={{ fontSize: '1rem', margin: 0 }}>Work History</h3>
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = workerLogs.map(log => ({
+                    'Date': formatDate(log.date),
+                    'Worker Name': selectedWorker.name,
+                    'Project Site': log.project || '-',
+                    'Time Worked': log.workTime,
+                    'Wage Incurred (₹)': log.wage,
+                    'Paid (₹)': getAmountPaid(log),
+                    'Pending (₹)': getAmountPending(log),
+                    'Status': log.paymentStatus
+                  }));
+                  // Append a summary row at the bottom
+                  exportData.push({
+                    'Date': 'TOTAL SUMMARY',
+                    'Worker Name': `ID: ${formatWorkerId(selectedWorker.id || selectedWorker._id)}`,
+                    'Project Site': `Role: ${selectedWorker.role}`,
+                    'Time Worked': `${totalDays} Days Worked`,
+                    'Wage Incurred (₹)': totalEarnings,
+                    'Paid (₹)': wagePaid,
+                    'Pending (₹)': remainingWage,
+                    'Status': remainingWage <= 0 ? 'PAID' : 'PENDING'
+                  });
+                  exportToExcel(exportData, `Labour_Report_${selectedWorker.name.replace(/\s+/g, '_')}`);
+                }}
+              >
+                <Download size={14} /> Export Report
+              </button>
+            </div>
             <div className="table-container">
               <table>
                 <thead>
