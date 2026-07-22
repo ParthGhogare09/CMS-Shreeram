@@ -23,6 +23,36 @@ const Projects = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [showFilterModal, setShowFilterModal] = useState(false);
 
+  const handleAddProject = (e) => {
+    e.preventDefault();
+    const newProj = {
+      name: formData.name,
+      client: formData.client,
+      budget: Number(formData.budget),
+      location: formData.location,
+      startDate: formData.startDate,
+      endDate: formData.endDate
+    };
+    addProjectAction(newProj);
+    setShowModal(false);
+    setFormData({ name: '', client: '', budget: '', location: '', startDate: '', endDate: '' });
+  };
+
+  const handleEditProject = (e) => {
+    e.preventDefault();
+    const updatedProj = {
+      name: currentProject.name,
+      client: currentProject.client,
+      budget: Number(currentProject.budget),
+      location: currentProject.location,
+      startDate: currentProject.startDate,
+      endDate: currentProject.endDate,
+      status: currentProject.status
+    };
+    updateProjectAction(currentProject.id, updatedProj);
+    setShowEditModal(false);
+  };
+
   if (loading) {
     return <SkeletonLoader type="table" rows={6} />;
   }
