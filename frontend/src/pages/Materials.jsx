@@ -239,40 +239,40 @@ const Materials = () => {
           </div>
 
           {/* Material Stock Side Scrollable Cards */}
-          <div className="side-scrollable-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.75rem', paddingBottom: '0.75rem', marginBottom: '1.5rem', width: '100%', scrollbarWidth: 'thin' }}>
+          <div className="side-scrollable-container">
             {filteredMaterials.map(mat => {
               const isExpanded = selectedMaterialId === (mat.id || mat._id);
               const isLowStock = mat.stock > 0 && mat.stock < (mat.lowStockWarning || 50);
               const isOutOfStock = mat.stock <= 0;
+              const statusClass = isOutOfStock ? 'status-out-of-stock' : isLowStock ? 'status-low-stock' : 'status-in-stock';
 
               return (
                 <div 
                   key={mat.id || mat._id}
-                  className="card"
-                  style={{
-                    cursor: 'pointer',
-                    padding: '0.75rem 1rem',
-                    border: isExpanded ? '1px solid var(--color-primary)' : '1px solid var(--border-color)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.4rem',
-                    width: '180px',
-                    flexShrink: 0,
-                    transition: 'var(--transition-fast)',
-                    boxShadow: 'var(--shadow-sm)'
-                  }}
+                  className={`material-scroll-card ${statusClass} ${isExpanded ? 'active' : ''}`}
                   onClick={() => setSelectedMaterialId(isExpanded ? null : (mat.id || mat._id))}
                 >
-                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={mat.name}>{mat.name}</h3>
+                  <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-text-main)' }} title={mat.name}>
+                    {mat.name}
+                  </h3>
                   
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
-                    <span style={{ color: 'var(--color-text-muted)' }}>Stock:</span>
-                    <span style={{ fontWeight: 700, color: isOutOfStock ? 'var(--color-danger)' : 'var(--color-text-main)' }}>{mat.stock} {mat.unit}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', marginTop: 'auto' }}>
+                    <span style={{ color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Package size={13} style={{ opacity: 0.7 }} /> Stock:
+                    </span>
+                    <span style={{ fontWeight: 800, color: isOutOfStock ? 'var(--color-danger)' : 'var(--color-text-main)' }}>
+                      {mat.stock} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>{mat.unit}</span>
+                    </span>
                   </div>
 
-                  <span className={`badge ${isOutOfStock ? 'badge-pending' : isLowStock ? 'badge-planning' : 'badge-active'}`} style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem', width: 'fit-content', marginTop: '0.1rem' }}>
-                    {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.15rem' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isOutOfStock ? 'var(--color-danger)' : isLowStock ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                      {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
+                    </span>
+                    {isExpanded && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-primary)' }}>Selected</span>
+                    )}
+                  </div>
                 </div>
               );
             })}

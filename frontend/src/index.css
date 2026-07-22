@@ -1614,17 +1614,17 @@ td {
 
   .action-toolbar-buttons .btn {
     flex: 1 1 0 !important;
-    padding: 0.45rem 0.2rem !important;
-    font-size: 0 !important; /* Hide text, show only icon */
-    gap: 0 !important;
+    padding: 0.45rem 0.35rem !important;
+    font-size: 0.76rem !important; /* Show text labels in single row */
+    gap: 4px !important;
     white-space: nowrap !important;
     justify-content: center !important;
     letter-spacing: -0.2px;
   }
 
   .action-toolbar-buttons .btn svg {
-    width: 14px !important;
-    height: 14px !important;
+    width: 13px !important;
+    height: 13px !important;
     margin: 0 !important;
   }
 
@@ -1696,6 +1696,87 @@ td {
     font-size: 0.68rem !important;
     margin-bottom: 2px !important;
   }
+}
+
+/* Materials Scroll Cards & Premium Styling */
+.side-scrollable-container {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.85rem;
+  padding: 0.5rem 0.25rem 0.85rem 0.25rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 81, 30, 0.3) transparent;
+}
+
+.side-scrollable-container::-webkit-scrollbar {
+  height: 5px;
+}
+
+.side-scrollable-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.side-scrollable-container::-webkit-scrollbar-thumb {
+  background: rgba(244, 81, 30, 0.25);
+  border-radius: 10px;
+}
+
+.side-scrollable-container::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+.material-scroll-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--border-radius, 12px);
+  padding: 0.75rem 0.85rem;
+  width: 165px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.01);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+
+.material-scroll-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  transition: var(--transition-fast);
+}
+
+.material-scroll-card.status-in-stock::before {
+  background-color: var(--color-success, #10b981);
+}
+
+.material-scroll-card.status-low-stock::before {
+  background-color: var(--color-warning, #f59e0b);
+}
+
+.material-scroll-card.status-out-of-stock::before {
+  background-color: var(--color-danger, #ef4444);
+}
+
+.material-scroll-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.06), 0 3px 6px -2px rgba(0, 0, 0, 0.04);
+  border-color: var(--color-primary-light);
+}
+
+.material-scroll-card.active {
+  border-color: var(--color-primary);
+  background-color: rgba(244, 81, 30, 0.04);
+  box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.12), 0 6px 12px -2px rgba(0, 0, 0, 0.04);
 }
 
 
