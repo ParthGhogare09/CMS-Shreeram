@@ -749,6 +749,68 @@ router.put('/workers/logs/:id', async (req, res) => {
 // ==========================================
 // 4. MATERIAL MANAGEMENT ENDPOINTS
 // ==========================================
+// Helpers to handle batch-wise material stock
+function restoreMaterialStock(materialObj, quantity, rate, date) {
+  if (!materialObj.batches) {
+    materialObj.batches = [];
+  }
+  const matchingBatch = materialObj.batches.find(b => b.purchaseRate === rate);
+  if (matchingBatch) {
+    matchingBatch.quantityAvailable += quantity;
+    if (matchingBatch.quantityAvailable > matchingBatch.quantityPurchased) {
+      matchingBatch.quantityPurchased = matchingBatch.quantityAvailable;
+    }
+  } else {
+    materialObj.batches.push({
+      purchaseRate: rate,
+      quantityPurchased: quantity,
+      quantityAvailable: quantity,
+      purchaseDate: date || new Date().toISOString().split('T')[0]
+    });
+  }
+  materialObj.stock = materialObj.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+}
+
+function deductMaterialStock(materialObj, quantity, rate) {
+  if (!materialObj.batches) {
+    materialObj.batches = [];
+  }
+  
+  if (materialObj.batches.length === 0 && materialObj.stock > 0) {
+    materialObj.batches.push({
+      purchaseRate: materialObj.purchaseAmount || rate || 0,
+      quantityPurchased: materialObj.stock,
+      quantityAvailable: materialObj.stock,
+      purchaseDate: new Date().toISOString().split('T')[0]
+    });
+  }
+
+  let remaining = quantity;
+  
+  // First pass: try exact purchase rate match
+  const matchingBatch = materialObj.batches.find(b => b.purchaseRate === rate && b.quantityAvailable > 0);
+  if (matchingBatch) {
+    const deduct = Math.min(remaining, matchingBatch.quantityAvailable);
+    matchingBatch.quantityAvailable -= deduct;
+    remaining -= deduct;
+  }
+
+  // Second pass: FIFO across remaining available batches
+  if (remaining > 0) {
+    materialObj.batches.sort((a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate));
+    for (const batch of materialObj.batches) {
+      if (batch.quantityAvailable > 0) {
+        const deduct = Math.min(remaining, batch.quantityAvailable);
+        batch.quantityAvailable -= deduct;
+        remaining -= deduct;
+        if (remaining <= 0) break;
+      }
+    }
+  }
+
+  materialObj.stock = materialObj.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+}
+
 router.get('/materials', async (req, res) => {
   try {
     const materials = await Material.find({});
@@ -758,7 +820,8 @@ router.get('/materials', async (req, res) => {
       stock: m.stock,
       unit: m.unit,
       lowStockWarning: m.lowStockWarning,
-      purchaseAmount: m.purchaseAmount
+      purchaseAmount: m.purchaseAmount,
+      batches: m.batches || []
     }));
     res.json(materialsList);
   } catch (error) {
@@ -769,25 +832,63 @@ router.get('/materials', async (req, res) => {
 // Create or update material stock
 router.post('/materials', async (req, res) => {
   try {
-    const { id, name, stock, unit, purchaseAmount } = req.body;
+    const { id, name, stock, unit, purchaseAmount, date } = req.body;
     let material;
+    
+    // Normalize material name to Title Case
+    const normalizedName = name ? name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
     
     if (id && mongoose.Types.ObjectId.isValid(id)) {
       material = await Material.findById(id);
+    } else if (normalizedName) {
+      material = await Material.findOne({ name: normalizedName });
     }
     
+    const qty = Number(stock);
+    const rate = Number(purchaseAmount);
+    const purchaseDate = date || new Date().toISOString().split('T')[0];
+    
     if (material) {
-      material.name = name;
-      material.stock = Number(stock);
-      material.unit = unit;
-      material.purchaseAmount = Number(purchaseAmount);
+      material.name = normalizedName || material.name;
+      material.unit = unit || material.unit;
+      
+      if (qty > 0) {
+        if (!material.batches) material.batches = [];
+        material.batches.push({
+          purchaseRate: rate,
+          quantityPurchased: qty,
+          quantityAvailable: qty,
+          purchaseDate: purchaseDate
+        });
+        material.purchaseAmount = rate;
+      }
+      
+      // Initialize default batch for historic stock if batches array is empty
+      if (material.batches.length === 0 && material.stock > 0) {
+        material.batches.push({
+          purchaseRate: material.purchaseAmount || rate || 0,
+          quantityPurchased: material.stock,
+          quantityAvailable: material.stock,
+          purchaseDate: purchaseDate
+        });
+      }
+      
+      material.stock = material.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
       await material.save();
     } else {
+      const newBatches = qty > 0 ? [{
+        purchaseRate: rate,
+        quantityPurchased: qty,
+        quantityAvailable: qty,
+        purchaseDate: purchaseDate
+      }] : [];
+      
       material = new Material({
-        name,
-        stock: Number(stock),
+        name: normalizedName,
+        stock: qty,
         unit,
-        purchaseAmount: Number(purchaseAmount)
+        purchaseAmount: rate,
+        batches: newBatches
       });
       await material.save();
     }
@@ -797,7 +898,8 @@ router.post('/materials', async (req, res) => {
       name: material.name,
       stock: material.stock,
       unit: material.unit,
-      purchaseAmount: material.purchaseAmount
+      purchaseAmount: material.purchaseAmount,
+      batches: material.batches || []
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -853,7 +955,7 @@ router.post('/materials/usage', async (req, res) => {
       // Revert old stock deduction
       const oldMatObj = await Material.findById(usageLog.material);
       if (oldMatObj) {
-        oldMatObj.stock += usageLog.quantity;
+        restoreMaterialStock(oldMatObj, usageLog.quantity, usageLog.distributionRate, usageLog.date);
         await oldMatObj.save();
       }
 
@@ -866,7 +968,7 @@ router.post('/materials/usage', async (req, res) => {
 
       // Apply new stock deduction
       matObj = await Material.findById(matObj._id);
-      matObj.stock = Math.max(0, matObj.stock - qty);
+      deductMaterialStock(matObj, qty, dRate);
       await matObj.save();
     } else {
       usageLog = new MaterialUsage({
@@ -879,7 +981,7 @@ router.post('/materials/usage', async (req, res) => {
       await usageLog.save();
 
       // Deduct stock
-      matObj.stock = Math.max(0, matObj.stock - qty);
+      deductMaterialStock(matObj, qty, dRate);
       await matObj.save();
 
       // Add to finance records as a material expense
@@ -1121,7 +1223,7 @@ router.delete('/materials/usage/:id', async (req, res) => {
     
     // Revert stock level
     if (usageLog.material) {
-      usageLog.material.stock += usageLog.quantity;
+      restoreMaterialStock(usageLog.material, usageLog.quantity, usageLog.distributionRate, usageLog.date);
       await usageLog.material.save();
     }
     

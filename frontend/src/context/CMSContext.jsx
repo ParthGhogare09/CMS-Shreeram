@@ -322,18 +322,44 @@ export const CMSProvider = ({ children }) => {
       await fetchData(false);
     } catch (err) {
       console.warn('Backend saveMaterial failed, updating local mock dataset:', err.message);
-      if (materialData.id) {
-        const idx = MOCK_MATERIALS.findIndex(m => (m.id || m._id).toString() === materialData.id.toString());
-        if (idx !== -1) {
-          MOCK_MATERIALS[idx] = { ...MOCK_MATERIALS[idx], ...materialData, stock: materialData.stock, purchaseAmount: materialData.purchaseAmount };
+      const normalizedName = materialData.name ? materialData.name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
+      const qty = Number(materialData.stock) || 0;
+      const rate = Number(materialData.purchaseAmount) || 0;
+      const date = materialData.date || new Date().toISOString().split('T')[0];
+
+      let existingMat = MOCK_MATERIALS.find(m => 
+        (materialData.id && (m.id || m._id || '').toString() === materialData.id.toString()) ||
+        (m.name.toLowerCase() === normalizedName.toLowerCase())
+      );
+
+      if (existingMat) {
+        existingMat.name = normalizedName || existingMat.name;
+        existingMat.unit = materialData.unit || existingMat.unit;
+        if (qty > 0) {
+          if (!existingMat.batches) existingMat.batches = [];
+          existingMat.batches.push({
+            purchaseRate: rate,
+            quantityPurchased: qty,
+            quantityAvailable: qty,
+            purchaseDate: date
+          });
+          existingMat.purchaseAmount = rate;
         }
+        existingMat.stock = existingMat.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
       } else {
+        const firstBatch = qty > 0 ? [{
+          purchaseRate: rate,
+          quantityPurchased: qty,
+          quantityAvailable: qty,
+          purchaseDate: date
+        }] : [];
         MOCK_MATERIALS.push({
           id: MOCK_MATERIALS.length + 1,
-          name: materialData.name,
-          stock: materialData.stock,
+          name: normalizedName,
+          stock: qty,
           unit: materialData.unit,
-          purchaseAmount: materialData.purchaseAmount
+          purchaseAmount: rate,
+          batches: firstBatch
         });
       }
       await fetchData(false);
@@ -346,26 +372,66 @@ export const CMSProvider = ({ children }) => {
       await fetchData(false);
     } catch (err) {
       console.warn('Backend logMaterialUsage failed, updating local mock dataset:', err.message);
+      const qty = Number(usageData.quantity) || 0;
+      const dRate = Number(usageData.distributionRate) || 0;
+      const date = usageData.date || new Date().toISOString().split('T')[0];
+
       if (usageData.id) {
-        const idx = MOCK_MATERIAL_USAGE.findIndex(u => (u.id || u._id).toString() === usageData.id.toString());
-        if (idx !== -1) {
-          MOCK_MATERIAL_USAGE[idx] = { ...MOCK_MATERIAL_USAGE[idx], ...usageData };
+        const oldUsage = MOCK_MATERIAL_USAGE.find(u => (u.id || u._id || '').toString() === usageData.id.toString());
+        if (oldUsage) {
+          const oldMat = MOCK_MATERIALS.find(m => m.name === oldUsage.material);
+          if (oldMat && oldMat.batches) {
+            const matchingBatch = oldMat.batches.find(b => b.purchaseRate === oldUsage.distributionRate);
+            if (matchingBatch) {
+              matchingBatch.quantityAvailable += oldUsage.quantity;
+            } else {
+              oldMat.batches.push({
+                purchaseRate: oldUsage.distributionRate,
+                quantityPurchased: oldUsage.quantity,
+                quantityAvailable: oldUsage.quantity,
+                purchaseDate: oldUsage.date
+              });
+            }
+            oldMat.stock = oldMat.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+          }
+          Object.assign(oldUsage, usageData);
         }
       } else {
         MOCK_MATERIAL_USAGE.push({
           id: MOCK_MATERIAL_USAGE.length + 1,
           material: usageData.material,
           project: usageData.project,
-          quantity: usageData.quantity,
+          quantity: qty,
           unit: usageData.unit,
-          distributionRate: usageData.distributionRate,
-          date: usageData.date
+          distributionRate: dRate,
+          date: date
         });
-        // Deduct stock locally
-        const mat = MOCK_MATERIALS.find(m => m.name === usageData.material);
-        if (mat) {
-          mat.stock = Math.max(0, mat.stock - usageData.quantity);
+      }
+
+      const mat = MOCK_MATERIALS.find(m => m.name === usageData.material);
+      if (mat) {
+        if (!mat.batches) mat.batches = [];
+        let remaining = qty;
+
+        const matchingBatch = mat.batches.find(b => b.purchaseRate === dRate && b.quantityAvailable > 0);
+        if (matchingBatch) {
+          const deduct = Math.min(remaining, matchingBatch.quantityAvailable);
+          matchingBatch.quantityAvailable -= deduct;
+          remaining -= deduct;
         }
+
+        if (remaining > 0) {
+          mat.batches.sort((a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate));
+          for (const batch of mat.batches) {
+            if (batch.quantityAvailable > 0) {
+              const deduct = Math.min(remaining, batch.quantityAvailable);
+              batch.quantityAvailable -= deduct;
+              remaining -= deduct;
+              if (remaining <= 0) break;
+            }
+          }
+        }
+        mat.stock = mat.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
       }
       await fetchData(false);
     }
@@ -504,7 +570,19 @@ export const CMSProvider = ({ children }) => {
         const log = MOCK_MATERIAL_USAGE[uIdx];
         const mat = MOCK_MATERIALS.find(m => m.name === log.material);
         if (mat) {
-          mat.stock = (mat.stock || 0) + log.quantity;
+          if (!mat.batches) mat.batches = [];
+          const matchingBatch = mat.batches.find(b => b.purchaseRate === log.distributionRate);
+          if (matchingBatch) {
+            matchingBatch.quantityAvailable += log.quantity;
+          } else {
+            mat.batches.push({
+              purchaseRate: log.distributionRate,
+              quantityPurchased: log.quantity,
+              quantityAvailable: log.quantity,
+              purchaseDate: log.date
+            });
+          }
+          mat.stock = mat.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
         }
         const cost = log.quantity * log.distributionRate;
         const finIdx = MOCK_FINANCES.findIndex(f => 

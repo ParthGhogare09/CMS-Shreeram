@@ -65,10 +65,51 @@ export const addProjectLogMock = (log) => {
 };
 
 export let MOCK_MATERIALS = [
-  { id: 1, name: 'Cement', stock: 450, unit: 'Bags', lowStockWarning: 50, purchaseAmount: 350 },
-  { id: 2, name: 'Steel Rebar', stock: 200, unit: 'Tons', lowStockWarning: 20, purchaseAmount: 55000 },
-  { id: 3, name: 'Bricks', stock: 150, unit: 'Pallets', lowStockWarning: 30, purchaseAmount: 4000 },
-  { id: 4, name: 'Sand', stock: 1000, unit: 'Cubic Feet', lowStockWarning: 200, purchaseAmount: 80 },
+  { 
+    id: 1, 
+    name: 'Cement', 
+    stock: 450, 
+    unit: 'Bags', 
+    lowStockWarning: 50, 
+    purchaseAmount: 350,
+    batches: [
+      { purchaseRate: 350, quantityPurchased: 300, quantityAvailable: 250, purchaseDate: '2026-04-01' },
+      { purchaseRate: 380, quantityPurchased: 200, quantityAvailable: 200, purchaseDate: '2026-04-15' }
+    ]
+  },
+  { 
+    id: 2, 
+    name: 'Steel Rebar', 
+    stock: 200, 
+    unit: 'Tons', 
+    lowStockWarning: 20, 
+    purchaseAmount: 55000,
+    batches: [
+      { purchaseRate: 55000, quantityPurchased: 220, quantityAvailable: 200, purchaseDate: '2026-04-05' }
+    ]
+  },
+  { 
+    id: 3, 
+    name: 'Bricks', 
+    stock: 150, 
+    unit: 'Pallets', 
+    lowStockWarning: 30, 
+    purchaseAmount: 4000,
+    batches: [
+      { purchaseRate: 4000, quantityPurchased: 150, quantityAvailable: 150, purchaseDate: '2026-04-10' }
+    ]
+  },
+  { 
+    id: 4, 
+    name: 'Sand', 
+    stock: 1000, 
+    unit: 'Cubic Feet', 
+    lowStockWarning: 200, 
+    purchaseAmount: 80,
+    batches: [
+      { purchaseRate: 80, quantityPurchased: 1000, quantityAvailable: 1000, purchaseDate: '2026-04-20' }
+    ]
+  },
 ];
 
 export let MOCK_MATERIAL_USAGE = [
