@@ -328,6 +328,7 @@ router.get('/projects/:id', async (req, res) => {
       quantity: log.quantity,
       unit: log.material ? log.material.unit : 'Units',
       distributionRate: log.distributionRate,
+      purchaseRateInfo: log.purchaseRateInfo || (log.material ? `₹${log.material.purchaseAmount}` : 'N/A'),
       cost: log.quantity * log.distributionRate,
       date: log.date
     }));
@@ -805,6 +806,7 @@ function deductMaterialStock(materialObj, quantity, rate) {
   }
 
   let remaining = quantity;
+  const consumed = [];
   
   // First pass: try exact purchase rate match
   const matchingBatch = materialObj.batches.find(b => b.purchaseRate === rate && b.quantityAvailable > 0);
@@ -812,6 +814,7 @@ function deductMaterialStock(materialObj, quantity, rate) {
     const deduct = Math.min(remaining, matchingBatch.quantityAvailable);
     matchingBatch.quantityAvailable -= deduct;
     remaining -= deduct;
+    consumed.push({ purchaseRate: matchingBatch.purchaseRate, quantity: deduct });
   }
 
   // Second pass: FIFO across remaining available batches
@@ -822,12 +825,14 @@ function deductMaterialStock(materialObj, quantity, rate) {
         const deduct = Math.min(remaining, batch.quantityAvailable);
         batch.quantityAvailable -= deduct;
         remaining -= deduct;
+        consumed.push({ purchaseRate: batch.purchaseRate, quantity: deduct });
         if (remaining <= 0) break;
       }
     }
   }
 
   materialObj.stock = materialObj.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+  return consumed;
 }
 
 router.get('/materials', async (req, res) => {
@@ -938,6 +943,7 @@ router.get('/materials/usage', async (req, res) => {
       quantity: log.quantity,
       unit: log.material ? log.material.unit : 'Units',
       distributionRate: log.distributionRate,
+      purchaseRateInfo: log.purchaseRateInfo || (log.material ? `₹${log.material.purchaseAmount}` : 'N/A'),
       date: log.date
     }));
     res.json(mappedLogs);
@@ -983,25 +989,35 @@ router.post('/materials/usage', async (req, res) => {
       usageLog.quantity = qty;
       usageLog.distributionRate = dRate;
       usageLog.date = date;
-      await usageLog.save();
 
-      // Apply new stock deduction
+      // Apply new stock deduction and trace consumed batches
       matObj = await Material.findById(matObj._id);
-      deductMaterialStock(matObj, qty, dRate);
+      const consumed = deductMaterialStock(matObj, qty, dRate);
       await matObj.save();
+
+      usageLog.purchaseRateInfo = consumed.length > 0
+        ? consumed.map(c => `₹${c.purchaseRate} (${c.quantity} ${matObj.unit})`).join(', ')
+        : `₹${matObj.purchaseAmount}`;
+
+      await usageLog.save();
     } else {
+      // Deduct stock and trace consumed batches first
+      const consumed = deductMaterialStock(matObj, qty, dRate);
+      await matObj.save();
+
+      const rateInfoStr = consumed.length > 0
+        ? consumed.map(c => `₹${c.purchaseRate} (${c.quantity} ${matObj.unit})`).join(', ')
+        : `₹${matObj.purchaseAmount}`;
+
       usageLog = new MaterialUsage({
         material: matObj._id,
         project: projObj._id,
         quantity: qty,
         distributionRate: dRate,
+        purchaseRateInfo: rateInfoStr,
         date: date
       });
       await usageLog.save();
-
-      // Deduct stock
-      deductMaterialStock(matObj, qty, dRate);
-      await matObj.save();
 
       // Add to finance records as a material expense
       const financeLog = new Finance({
@@ -1022,6 +1038,7 @@ router.post('/materials/usage', async (req, res) => {
       quantity: qty,
       unit: matObj.unit,
       distributionRate: dRate,
+      purchaseRateInfo: usageLog.purchaseRateInfo,
       date
     });
   } catch (error) {
@@ -1078,28 +1095,46 @@ router.get('/finances', async (req, res) => {
       const distQty = usages.reduce((sum, u) => sum + u.quantity, 0);
       const distValue = usages.reduce((sum, u) => sum + (u.quantity * u.distributionRate), 0);
 
-      let totalPurchaseCost = 0;
-      let remainingStockValue = 0;
+      const avgDistRate = distQty > 0 ? (distValue / distQty) : mat.purchaseAmount;
 
+      let totalPurchaseCost = 0;
       if (mat.batches && mat.batches.length > 0) {
         totalPurchaseCost = mat.batches.reduce((sum, b) => sum + (b.quantityPurchased * b.purchaseRate), 0);
-        remainingStockValue = mat.batches.reduce((sum, b) => sum + (b.quantityAvailable * b.purchaseRate), 0);
       } else {
         totalPurchaseCost = (mat.stock + distQty) * mat.purchaseAmount;
-        remainingStockValue = mat.stock * mat.purchaseAmount;
       }
-
       totalMaterialSpent += totalPurchaseCost;
 
-      materialStats.push({
-        name: mat.name,
-        purchasedQty: mat.stock + distQty,
-        purchaseValue: totalPurchaseCost,
-        distQty,
-        distValue,
-        unit: mat.unit,
-        profit: distValue - (totalPurchaseCost - remainingStockValue)
-      });
+      const batches = mat.batches || [];
+      if (batches.length > 0) {
+        batches.forEach((b, idx) => {
+          const batchDistQty = b.quantityPurchased - b.quantityAvailable;
+          const batchDistValue = batchDistQty * avgDistRate;
+          const batchPurchaseValue = b.quantityPurchased * b.purchaseRate;
+
+          materialStats.push({
+            name: `${mat.name} (Batch ${idx + 1})`,
+            purchaseDate: b.purchaseDate,
+            purchasedQty: b.quantityPurchased,
+            purchaseValue: batchPurchaseValue,
+            distQty: batchDistQty,
+            distValue: batchDistValue,
+            unit: mat.unit,
+            profit: batchDistValue - (batchDistQty * b.purchaseRate)
+          });
+        });
+      } else {
+        materialStats.push({
+          name: `${mat.name} (Batch 1)`,
+          purchaseDate: 'Historic',
+          purchasedQty: mat.stock + distQty,
+          purchaseValue: totalPurchaseCost,
+          distQty,
+          distValue,
+          unit: mat.unit,
+          profit: distValue - (totalPurchaseCost - (mat.stock * mat.purchaseAmount))
+        });
+      }
     }
 
     // 5. Labor statistics by worker

@@ -677,6 +677,7 @@ const Materials = () => {
                     const exportData = filteredUsageLogs.map(log => ({
                       'Log ID': formatMaterialId(log.id || log._id),
                       'Material': log.material,
+                      'Batch / Purchase Rate': log.purchaseRateInfo || 'N/A',
                       'Site / Project': log.project,
                       'Quantity Distributed': log.quantity,
                       'Unit': log.unit,
@@ -714,6 +715,7 @@ const Materials = () => {
                 <tr>
                   <th>Log ID</th>
                   <th>Material</th>
+                  <th>Batch / Purchase Rate</th>
                   <th>Site / Project</th>
                   <th>Quantity Distributed</th>
                   <th>Unit</th>
@@ -728,6 +730,7 @@ const Materials = () => {
                   <tr key={log.id || log._id}>
                     <td data-label="Log ID">L{String(log.id || log._id || '').slice(-3).padStart(3, '0')}</td>
                     <td data-label="Material" style={{ fontWeight: 600 }}>{log.material}</td>
+                    <td data-label="Batch / Purchase Rate" style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{log.purchaseRateInfo || 'N/A'}</td>
                     <td data-label="Project">{log.project}</td>
                     <td data-label="Quantity" style={{ color: '#ef4444' }}>-{log.quantity}</td>
                     <td data-label="Unit">{log.unit}</td>
@@ -762,7 +765,7 @@ const Materials = () => {
                   </tr>
                 ))}
                 {filteredUsageLogs.length === 0 && (
-                  <tr><td colSpan="9" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No usage logs found.</td></tr>
+                  <tr><td colSpan="10" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No usage logs found.</td></tr>
                 )}
               </tbody>
             </table>

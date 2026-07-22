@@ -111,31 +111,45 @@ export const CMSProvider = ({ children }) => {
       const totalLaborPaid = MOCK_DAILY_LOGS.filter(l => l.paymentStatus === 'Paid').reduce((acc, l) => acc + (l.wage || 0), 0);
       const totalLaborPending = totalLaborWage - totalLaborPaid;
       
-      const matStats = MOCK_MATERIALS.map(mat => {
+      const matStats = [];
+      MOCK_MATERIALS.forEach(mat => {
         const usages = MOCK_MATERIAL_USAGE.filter(u => u.material === mat.name);
         const distQty = usages.reduce((acc, u) => acc + Number(u.quantity || 0), 0);
         const distValue = usages.reduce((acc, u) => acc + (Number(u.quantity || 0) * Number(u.distributionRate || 0)), 0);
 
-        let totalPurchaseCost = 0;
-        let remainingStockValue = 0;
+        const avgDistRate = distQty > 0 ? (distValue / distQty) : Number(mat.purchaseAmount || 0);
 
-        if (mat.batches && mat.batches.length > 0) {
-          totalPurchaseCost = mat.batches.reduce((sum, b) => sum + ((b.quantityPurchased || 0) * (b.purchaseRate || 0)), 0);
-          remainingStockValue = mat.batches.reduce((sum, b) => sum + ((b.quantityAvailable || 0) * (b.purchaseRate || 0)), 0);
+        const batches = mat.batches || [];
+        if (batches.length > 0) {
+          batches.forEach((b, idx) => {
+            const batchDistQty = (b.quantityPurchased || 0) - (b.quantityAvailable || 0);
+            const batchDistValue = batchDistQty * avgDistRate;
+            const batchPurchaseValue = (b.quantityPurchased || 0) * (b.purchaseRate || 0);
+
+            matStats.push({
+              name: `${mat.name} (Batch ${idx + 1})`,
+              purchaseDate: b.purchaseDate,
+              purchasedQty: b.quantityPurchased,
+              purchaseValue: batchPurchaseValue,
+              distQty: batchDistQty,
+              distValue: batchDistValue,
+              unit: mat.unit,
+              profit: batchDistValue - (batchDistQty * (b.purchaseRate || 0))
+            });
+          });
         } else {
-          totalPurchaseCost = (Number(mat.stock || 0) + distQty) * Number(mat.purchaseAmount || 0);
-          remainingStockValue = Number(mat.stock || 0) * Number(mat.purchaseAmount || 0);
+          const totalPurchaseCost = (Number(mat.stock || 0) + distQty) * Number(mat.purchaseAmount || 0);
+          matStats.push({
+            name: `${mat.name} (Batch 1)`,
+            purchaseDate: 'Historic',
+            purchasedQty: Number(mat.stock || 0) + distQty,
+            purchaseValue: totalPurchaseCost,
+            distQty,
+            distValue,
+            unit: mat.unit,
+            profit: distValue - (totalPurchaseCost - (Number(mat.stock || 0) * Number(mat.purchaseAmount || 0)))
+          });
         }
-
-        return {
-          name: mat.name,
-          purchasedQty: Number(mat.stock || 0) + distQty,
-          purchaseValue: totalPurchaseCost,
-          distQty,
-          distValue,
-          unit: mat.unit,
-          profit: distValue - (totalPurchaseCost - remainingStockValue)
-        };
       });
       const totalMaterialSpent = matStats.reduce((acc, mat) => acc + mat.purchaseValue, 0);
 

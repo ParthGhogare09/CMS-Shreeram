@@ -320,6 +320,7 @@ const Finance = () => {
               onClick={() => {
                 const exportData = filteredMaterialStats.map(m => ({
                   'Material Name': m.name,
+                  'Purchase Date': m.purchaseDate === 'Historic' ? 'Historic' : formatDate(m.purchaseDate),
                   'Total Purchase Cost (₹)': m.purchaseValue,
                   'Purchased Qty': `${m.purchasedQty} ${m.unit}`,
                   'Distributed Value (₹)': m.distValue,
@@ -337,7 +338,8 @@ const Finance = () => {
           <table>
             <thead>
               <tr>
-                <th>Material</th>
+                <th>Batch / Material</th>
+                <th>Purchase Date</th>
                 <th>Total Purchase Cost (₹)</th>
                 <th>Total Distributed Amount (₹)</th>
                 <th>Profit / Difference (₹)</th>
@@ -347,6 +349,7 @@ const Finance = () => {
               {filteredMaterialStats.map((mat, idx) => (
                 <tr key={idx}>
                   <td data-label="Material" style={{ fontWeight: 600 }}>{mat.name}</td>
+                  <td data-label="Purchase Date">{mat.purchaseDate === 'Historic' ? 'Historic' : formatDate(mat.purchaseDate)}</td>
                   <td data-label="Purchase Cost">
                     {formatRupee(mat.purchaseValue)}
                     <div style={{ fontSize: '0.8rem', color: '#a0a0a0' }}>{mat.purchasedQty} {mat.unit}</div>
@@ -363,7 +366,7 @@ const Finance = () => {
                 </tr>
               ))}
               {filteredMaterialStats.length === 0 && (
-                <tr><td colSpan="4" style={{textAlign: 'center', padding: '1rem'}}>No material data available.</td></tr>
+                <tr><td colSpan="5" style={{textAlign: 'center', padding: '1rem'}}>No material data available.</td></tr>
               )}
             </tbody>
           </table>

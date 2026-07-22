@@ -448,6 +448,7 @@ const ProjectDetails = () => {
                     return {
                       'Log ID': log.id || log._id,
                       'Material / Item': log.name,
+                      'Batch / Purchase Rate': log.purchaseRateInfo || 'N/A',
                       'Quantity Distributed': qty,
                       'Unit': log.unit || 'Units',
                       'Distribution Rate (₹)': rate,
@@ -468,6 +469,7 @@ const ProjectDetails = () => {
                 <tr>
                   <th>Log ID</th>
                   <th>Material / Item</th>
+                  <th>Batch / Purchase Rate</th>
                   <th>Quantity Distributed</th>
                   <th>Unit</th>
                   <th>Distribution Rate (₹)</th>
@@ -490,6 +492,7 @@ const ProjectDetails = () => {
                       <td data-label="Material" style={{ fontWeight: 600 }}>
                         {log.name} {log.type === 'Miscellaneous' ? <span style={{fontSize:'0.8rem', color:'#f59e0b'}}>(Misc)</span> : ''}
                       </td>
+                      <td data-label="Batch / Purchase Rate" style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{log.purchaseRateInfo || 'N/A'}</td>
                       <td data-label="Quantity Distributed">{parseFloat(qty)}</td>
                       <td data-label="Unit">{unit}</td>
                       <td data-label="Distribution Rate">{formatRupee(rate)}</td>
