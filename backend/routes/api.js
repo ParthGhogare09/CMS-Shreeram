@@ -82,16 +82,19 @@ router.get('/dashboard', async (req, res) => {
     const totalLaborWage = laborWageResult.length > 0 ? laborWageResult[0].total : 0;
 
     // Sum Material Purchase Costs
-    // total material spent = sum over all materials (stock + usageQty) * purchaseAmount
     const materials = await Material.find({});
     let totalMaterialSpent = 0;
     for (const mat of materials) {
-      const usageResult = await MaterialUsage.aggregate([
-        { $match: { material: mat._id } },
-        { $group: { _id: null, total: { $sum: '$quantity' } } }
-      ]);
-      const usageQty = usageResult.length > 0 ? usageResult[0].total : 0;
-      totalMaterialSpent += (mat.stock + usageQty) * mat.purchaseAmount;
+      if (mat.batches && mat.batches.length > 0) {
+        totalMaterialSpent += mat.batches.reduce((sum, b) => sum + (b.quantityPurchased * b.purchaseRate), 0);
+      } else {
+        const usageResult = await MaterialUsage.aggregate([
+          { $match: { material: mat._id } },
+          { $group: { _id: null, total: { $sum: '$quantity' } } }
+        ]);
+        const usageQty = usageResult.length > 0 ? usageResult[0].total : 0;
+        totalMaterialSpent += (mat.stock + usageQty) * mat.purchaseAmount;
+      }
     }
 
     const totalExpense = totalGeneralExpense + totalLaborWage + totalMaterialSpent;
@@ -1075,18 +1078,27 @@ router.get('/finances', async (req, res) => {
       const distQty = usages.reduce((sum, u) => sum + u.quantity, 0);
       const distValue = usages.reduce((sum, u) => sum + (u.quantity * u.distributionRate), 0);
 
-      const purchasedQty = mat.stock + distQty;
-      const purchaseValue = purchasedQty * mat.purchaseAmount;
-      totalMaterialSpent += purchaseValue;
+      let totalPurchaseCost = 0;
+      let remainingStockValue = 0;
+
+      if (mat.batches && mat.batches.length > 0) {
+        totalPurchaseCost = mat.batches.reduce((sum, b) => sum + (b.quantityPurchased * b.purchaseRate), 0);
+        remainingStockValue = mat.batches.reduce((sum, b) => sum + (b.quantityAvailable * b.purchaseRate), 0);
+      } else {
+        totalPurchaseCost = (mat.stock + distQty) * mat.purchaseAmount;
+        remainingStockValue = mat.stock * mat.purchaseAmount;
+      }
+
+      totalMaterialSpent += totalPurchaseCost;
 
       materialStats.push({
         name: mat.name,
-        purchasedQty,
-        purchaseValue,
+        purchasedQty: mat.stock + distQty,
+        purchaseValue: totalPurchaseCost,
         distQty,
         distValue,
         unit: mat.unit,
-        profit: distValue - (distQty * mat.purchaseAmount)
+        profit: distValue - (totalPurchaseCost - remainingStockValue)
       });
     }
 

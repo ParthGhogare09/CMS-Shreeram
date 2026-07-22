@@ -115,16 +115,26 @@ export const CMSProvider = ({ children }) => {
         const usages = MOCK_MATERIAL_USAGE.filter(u => u.material === mat.name);
         const distQty = usages.reduce((acc, u) => acc + Number(u.quantity || 0), 0);
         const distValue = usages.reduce((acc, u) => acc + (Number(u.quantity || 0) * Number(u.distributionRate || 0)), 0);
-        const purchasedQty = Number(mat.stock || 0) + distQty;
-        const purchaseValue = purchasedQty * Number(mat.purchaseAmount || 0);
+
+        let totalPurchaseCost = 0;
+        let remainingStockValue = 0;
+
+        if (mat.batches && mat.batches.length > 0) {
+          totalPurchaseCost = mat.batches.reduce((sum, b) => sum + ((b.quantityPurchased || 0) * (b.purchaseRate || 0)), 0);
+          remainingStockValue = mat.batches.reduce((sum, b) => sum + ((b.quantityAvailable || 0) * (b.purchaseRate || 0)), 0);
+        } else {
+          totalPurchaseCost = (Number(mat.stock || 0) + distQty) * Number(mat.purchaseAmount || 0);
+          remainingStockValue = Number(mat.stock || 0) * Number(mat.purchaseAmount || 0);
+        }
+
         return {
           name: mat.name,
-          purchasedQty,
-          purchaseValue,
+          purchasedQty: Number(mat.stock || 0) + distQty,
+          purchaseValue: totalPurchaseCost,
           distQty,
           distValue,
           unit: mat.unit,
-          profit: distValue - (distQty * Number(mat.purchaseAmount || 0))
+          profit: distValue - (totalPurchaseCost - remainingStockValue)
         };
       });
       const totalMaterialSpent = matStats.reduce((acc, mat) => acc + mat.purchaseValue, 0);
