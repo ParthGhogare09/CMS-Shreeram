@@ -912,23 +912,34 @@ const Materials = () => {
                     <div className="form-group">
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Select Available Batch Rate to Auto-Fill</label>
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {activeBatches.map((b, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ fontSize: '0.78rem', padding: '0.35rem 0.6rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}
-                            onClick={() => {
-                              setCurrentUsage({
-                                ...currentUsage,
-                                distributionRate: b.purchaseRate,
-                                quantity: Math.min(Number(currentUsage.quantity) || b.quantityAvailable, b.quantityAvailable)
-                              });
-                            }}
-                          >
-                            ₹{b.purchaseRate} ({b.quantityAvailable} {matched.unit} left)
-                          </button>
-                        ))}
+                        {activeBatches.map((b, idx) => {
+                          const isSelected = Number(currentUsage.distributionRate) === b.purchaseRate;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ 
+                                fontSize: '0.78rem', 
+                                padding: '0.35rem 0.6rem', 
+                                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--border-color)', 
+                                borderRadius: 'var(--border-radius-sm)',
+                                backgroundColor: isSelected ? 'var(--color-primary-light)' : '',
+                                color: isSelected ? 'var(--color-primary)' : '',
+                                fontWeight: isSelected ? '600' : 'normal'
+                              }}
+                              onClick={() => {
+                                setCurrentUsage({
+                                  ...currentUsage,
+                                  distributionRate: b.purchaseRate,
+                                  quantity: Math.min(Number(currentUsage.quantity) || b.quantityAvailable, b.quantityAvailable)
+                                });
+                              }}
+                            >
+                              ₹{b.purchaseRate} ({b.quantityAvailable} {matched.unit} left)
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   );
