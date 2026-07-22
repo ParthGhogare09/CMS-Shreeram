@@ -329,6 +329,8 @@ router.get('/projects/:id', async (req, res) => {
       unit: log.material ? log.material.unit : 'Units',
       distributionRate: log.distributionRate,
       purchaseRateInfo: log.purchaseRateInfo || (log.material ? `₹${log.material.purchaseAmount}` : 'N/A'),
+      purchaseCost: log.purchaseCost || (log.quantity * (log.material ? log.material.purchaseAmount : 0)),
+      batchesConsumed: log.batchesConsumed || 'Batch 1',
       cost: log.quantity * log.distributionRate,
       date: log.date
     }));
@@ -805,27 +807,43 @@ function deductMaterialStock(materialObj, quantity, rate) {
     });
   }
 
+  // Map original indices so we can identify stable "Batch 1", "Batch 2", etc.
+  const indexedBatches = materialObj.batches.map((b, idx) => ({
+    originalBatch: b,
+    batchRef: `Batch ${idx + 1}`,
+    purchaseRate: b.purchaseRate,
+    purchaseDate: b.purchaseDate
+  }));
+
   let remaining = quantity;
   const consumed = [];
   
   // First pass: try exact purchase rate match
-  const matchingBatch = materialObj.batches.find(b => b.purchaseRate === rate && b.quantityAvailable > 0);
-  if (matchingBatch) {
-    const deduct = Math.min(remaining, matchingBatch.quantityAvailable);
-    matchingBatch.quantityAvailable -= deduct;
+  const matchingIndexed = indexedBatches.find(b => b.purchaseRate === rate && b.originalBatch.quantityAvailable > 0);
+  if (matchingIndexed) {
+    const deduct = Math.min(remaining, matchingIndexed.originalBatch.quantityAvailable);
+    matchingIndexed.originalBatch.quantityAvailable -= deduct;
     remaining -= deduct;
-    consumed.push({ purchaseRate: matchingBatch.purchaseRate, quantity: deduct });
+    consumed.push({ 
+      batchRef: matchingIndexed.batchRef, 
+      purchaseRate: matchingIndexed.purchaseRate, 
+      quantity: deduct 
+    });
   }
 
   // Second pass: FIFO across remaining available batches
   if (remaining > 0) {
-    materialObj.batches.sort((a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate));
-    for (const batch of materialObj.batches) {
-      if (batch.quantityAvailable > 0) {
-        const deduct = Math.min(remaining, batch.quantityAvailable);
-        batch.quantityAvailable -= deduct;
+    indexedBatches.sort((a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate));
+    for (const ib of indexedBatches) {
+      if (ib.originalBatch.quantityAvailable > 0) {
+        const deduct = Math.min(remaining, ib.originalBatch.quantityAvailable);
+        ib.originalBatch.quantityAvailable -= deduct;
         remaining -= deduct;
-        consumed.push({ purchaseRate: batch.purchaseRate, quantity: deduct });
+        consumed.push({ 
+          batchRef: ib.batchRef, 
+          purchaseRate: ib.purchaseRate, 
+          quantity: deduct 
+        });
         if (remaining <= 0) break;
       }
     }
@@ -944,6 +962,8 @@ router.get('/materials/usage', async (req, res) => {
       unit: log.material ? log.material.unit : 'Units',
       distributionRate: log.distributionRate,
       purchaseRateInfo: log.purchaseRateInfo || (log.material ? `₹${log.material.purchaseAmount}` : 'N/A'),
+      purchaseCost: log.purchaseCost || (log.quantity * (log.material ? log.material.purchaseAmount : 0)),
+      batchesConsumed: log.batchesConsumed || 'Batch 1',
       date: log.date
     }));
     res.json(mappedLogs);
@@ -998,6 +1018,14 @@ router.post('/materials/usage', async (req, res) => {
       usageLog.purchaseRateInfo = consumed.length > 0
         ? consumed.map(c => `₹${c.purchaseRate} (${c.quantity} ${matObj.unit})`).join(', ')
         : `₹${matObj.purchaseAmount}`;
+      
+      usageLog.purchaseCost = consumed.length > 0
+        ? consumed.reduce((sum, c) => sum + (c.quantity * c.purchaseRate), 0)
+        : qty * matObj.purchaseAmount;
+      
+      usageLog.batchesConsumed = consumed.length > 0
+        ? Array.from(new Set(consumed.map(c => c.batchRef))).join(', ')
+        : 'Batch 1';
 
       await usageLog.save();
     } else {
@@ -1009,12 +1037,22 @@ router.post('/materials/usage', async (req, res) => {
         ? consumed.map(c => `₹${c.purchaseRate} (${c.quantity} ${matObj.unit})`).join(', ')
         : `₹${matObj.purchaseAmount}`;
 
+      const computedPurchaseCost = consumed.length > 0
+        ? consumed.reduce((sum, c) => sum + (c.quantity * c.purchaseRate), 0)
+        : qty * matObj.purchaseAmount;
+
+      const computedBatchesConsumed = consumed.length > 0
+        ? Array.from(new Set(consumed.map(c => c.batchRef))).join(', ')
+        : 'Batch 1';
+
       usageLog = new MaterialUsage({
         material: matObj._id,
         project: projObj._id,
         quantity: qty,
         distributionRate: dRate,
         purchaseRateInfo: rateInfoStr,
+        purchaseCost: computedPurchaseCost,
+        batchesConsumed: computedBatchesConsumed,
         date: date
       });
       await usageLog.save();
@@ -1039,6 +1077,8 @@ router.post('/materials/usage', async (req, res) => {
       unit: matObj.unit,
       distributionRate: dRate,
       purchaseRateInfo: usageLog.purchaseRateInfo,
+      purchaseCost: usageLog.purchaseCost,
+      batchesConsumed: usageLog.batchesConsumed,
       date
     });
   } catch (error) {

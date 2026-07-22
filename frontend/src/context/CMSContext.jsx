@@ -421,6 +421,59 @@ export const CMSProvider = ({ children }) => {
           Object.assign(oldUsage, usageData);
         }
       } else {
+        const mat = MOCK_MATERIALS.find(m => m.name === usageData.material);
+        let remaining = qty;
+        const consumed = [];
+        
+        if (mat) {
+          if (!mat.batches) mat.batches = [];
+          
+          const indexedBatches = mat.batches.map((b, idx) => ({
+            originalBatch: b,
+            batchRef: `Batch ${idx + 1}`,
+            purchaseRate: b.purchaseRate,
+            purchaseDate: b.purchaseDate
+          }));
+
+          const matchingIndexed = indexedBatches.find(b => b.purchaseRate === dRate && b.originalBatch.quantityAvailable > 0);
+          if (matchingIndexed) {
+            const deduct = Math.min(remaining, matchingIndexed.originalBatch.quantityAvailable);
+            matchingIndexed.originalBatch.quantityAvailable -= deduct;
+            remaining -= deduct;
+            consumed.push({
+              batchRef: matchingIndexed.batchRef,
+              purchaseRate: matchingIndexed.purchaseRate,
+              quantity: deduct
+            });
+          }
+
+          if (remaining > 0) {
+            indexedBatches.sort((a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate));
+            for (const ib of indexedBatches) {
+              if (ib.originalBatch.quantityAvailable > 0) {
+                const deduct = Math.min(remaining, ib.originalBatch.quantityAvailable);
+                ib.originalBatch.quantityAvailable -= deduct;
+                remaining -= deduct;
+                consumed.push({
+                  batchRef: ib.batchRef,
+                  purchaseRate: ib.purchaseRate,
+                  quantity: deduct
+                });
+                if (remaining <= 0) break;
+              }
+            }
+          }
+          mat.stock = mat.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+        }
+
+        const computedPurchaseCost = consumed.length > 0
+          ? consumed.reduce((sum, c) => sum + (c.quantity * c.purchaseRate), 0)
+          : qty * (mat ? mat.purchaseAmount : 0);
+
+        const computedBatchesConsumed = consumed.length > 0
+          ? Array.from(new Set(consumed.map(c => c.batchRef))).join(', ')
+          : 'Batch 1';
+
         MOCK_MATERIAL_USAGE.push({
           id: MOCK_MATERIAL_USAGE.length + 1,
           material: usageData.material,
@@ -428,34 +481,13 @@ export const CMSProvider = ({ children }) => {
           quantity: qty,
           unit: usageData.unit,
           distributionRate: dRate,
+          purchaseCost: computedPurchaseCost,
+          batchesConsumed: computedBatchesConsumed,
+          purchaseRateInfo: consumed.length > 0
+            ? consumed.map(c => `₹${c.purchaseRate} (${c.quantity} ${usageData.unit})`).join(', ')
+            : `₹${mat ? mat.purchaseAmount : 0}`,
           date: date
         });
-      }
-
-      const mat = MOCK_MATERIALS.find(m => m.name === usageData.material);
-      if (mat) {
-        if (!mat.batches) mat.batches = [];
-        let remaining = qty;
-
-        const matchingBatch = mat.batches.find(b => b.purchaseRate === dRate && b.quantityAvailable > 0);
-        if (matchingBatch) {
-          const deduct = Math.min(remaining, matchingBatch.quantityAvailable);
-          matchingBatch.quantityAvailable -= deduct;
-          remaining -= deduct;
-        }
-
-        if (remaining > 0) {
-          mat.batches.sort((a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate));
-          for (const batch of mat.batches) {
-            if (batch.quantityAvailable > 0) {
-              const deduct = Math.min(remaining, batch.quantityAvailable);
-              batch.quantityAvailable -= deduct;
-              remaining -= deduct;
-              if (remaining <= 0) break;
-            }
-          }
-        }
-        mat.stock = mat.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
       }
       await fetchData(false);
     }
