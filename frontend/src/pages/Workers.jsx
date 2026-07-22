@@ -880,41 +880,45 @@ const Workers = () => {
 
     return (
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
           <h2 className="card-title" style={{ margin: 0 }}>Labour Summary & Roster</h2>
-          <div className="action-toolbar" style={{ width: 'auto' }}>
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = summaryData.map(data => ({
-                  'Worker ID': formatWorkerId(data.id),
-                  'Name': data.name,
-                  'Total Days Worked': `${data.daysWorked} Days`,
-                  'Total Earned (₹)': data.totalWage,
-                  'Paid (₹)': data.wagePaid,
-                  'Pending (₹)': data.wagePending
-                }));
-                const label = summaryFilterType === 'month' ? `Labour_Summary_${month}` : `Labour_Summary_${summaryStartDate || 'Start'}_to_${summaryEndDate || 'End'}`;
-                exportToExcel(exportData, label);
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
-          </div>
         </div>
 
         <div className="labour-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', padding: '1rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--border-radius-md)', marginBottom: '1.25rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Filter Type</label>
-            <select 
-              value={summaryFilterType} 
-              onChange={e => setSummaryFilterType(e.target.value)}
-              style={{ padding: '0.45rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem' }}
-            >
-              <option value="month">By Single Month</option>
-              <option value="range">By Custom Date Range</option>
-            </select>
+          <div className="filter-type-row" style={{ display: 'flex', gap: '0.5rem', width: '100%', flex: 1, minWidth: '240px' }}>
+            <div className="form-group" style={{ margin: 0, flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Filter Type</label>
+              <select 
+                value={summaryFilterType} 
+                onChange={e => setSummaryFilterType(e.target.value)}
+                style={{ padding: '0.45rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem', width: '100%' }}
+              >
+                <option value="month">By Single Month</option>
+                <option value="range">By Custom Date Range</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ margin: 0, width: 'auto', flexShrink: 0 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'transparent', marginBottom: '4px', userSelect: 'none', pointerEvents: 'none' }}>Download</label>
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', height: '32px' }}
+                onClick={() => {
+                  const exportData = summaryData.map(data => ({
+                    'Worker ID': formatWorkerId(data.id),
+                    'Name': data.name,
+                    'Total Days Worked': `${data.daysWorked} Days`,
+                    'Total Earned (₹)': data.totalWage,
+                    'Paid (₹)': data.wagePaid,
+                    'Pending (₹)': data.wagePending
+                  }));
+                  const label = summaryFilterType === 'month' ? `Labour_Summary_${month}` : `Labour_Summary_${summaryStartDate || 'Start'}_to_${summaryEndDate || 'End'}`;
+                  exportToExcel(exportData, label);
+                }}
+              >
+                <Download size={14} /> <span className="btn-text">Export Excel</span>
+              </button>
+            </div>
           </div>
 
           {summaryFilterType === 'month' ? (
