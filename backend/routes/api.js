@@ -640,6 +640,10 @@ router.post('/workers/logs', async (req, res) => {
       projectObj = await resolveProject(project);
     }
 
+    if (!projectObj) {
+      return res.status(400).json({ error: 'A valid site/project must be selected before logging worker attendance.' });
+    }
+
     // Wage calculation logic
     let multiplier = 1;
     if (workTime === 'Half Day') multiplier = 0.5;
@@ -701,6 +705,10 @@ router.put('/workers/logs/:id', async (req, res) => {
     let projectObj = null;
     if (project) {
       projectObj = await resolveProject(project);
+    }
+
+    if (!projectObj) {
+      return res.status(400).json({ error: 'A valid site/project must be selected before logging worker attendance.' });
     }
 
     let multiplier = 1;

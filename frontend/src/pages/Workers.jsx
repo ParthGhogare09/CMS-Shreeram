@@ -143,6 +143,17 @@ const Workers = () => {
       return;
     }
 
+    if (!currentLog.project || !currentLog.project.trim()) {
+      alert('Project / Site is required to save the log.');
+      return;
+    }
+
+    const projectObj = projects.find(p => p.name.toLowerCase() === currentLog.project.trim().toLowerCase());
+    if (!projectObj) {
+      alert('Please select or type a valid active site/project from the list.');
+      return;
+    }
+
     let wageMultiplier = 1;
     if (currentLog.workTime === 'Half Day') wageMultiplier = 0.5;
     if (currentLog.workTime === 'Overtime') wageMultiplier = 1.5;
@@ -425,7 +436,11 @@ const Workers = () => {
                 <Download size={14} /> Export Excel
               </button>
               <button className="btn btn-primary" onClick={() => {
-                setCurrentLog({ id: '', date: '', workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
+                if (projects.length === 0) {
+                  alert('No site/project found. Please add a site/project first before logging attendance.');
+                  return;
+                }
+                setCurrentLog({ id: '', date: new Date().toISOString().split('T')[0], workerId: '', workerName: '', project: '', status: 'Present', workTime: 'Full Day', paymentStatus: 'Pending', amountPaid: '' });
                 setShowAddLog(true);
               }}>
                 <Plus size={16} /> Add New Data
