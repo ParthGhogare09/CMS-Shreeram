@@ -68,10 +68,10 @@ router.get('/dashboard', async (req, res) => {
     ]);
     const totalIncome = incomeResult.length > 0 ? incomeResult[0].total : 0;
 
-    // Sum General Expenses (EXCLUDE Materials category to avoid double-counting
-    // since material costs are computed separately from batch purchase data below)
+    // Sum General Expenses (EXCLUDE Materials and Labor categories to avoid double-counting
+    // since material costs and labor wages are computed separately below)
     const generalExpenseResult = await Finance.aggregate([
-      { $match: { type: 'Expense', category: { $ne: 'Materials' } } },
+      { $match: { type: 'Expense', category: { $nin: ['Materials', 'Labor'] } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const totalGeneralExpense = generalExpenseResult.length > 0 ? generalExpenseResult[0].total : 0;
@@ -128,7 +128,7 @@ router.get('/dashboard', async (req, res) => {
     ]);
 
     const monthlyExpenseFinance = await Finance.aggregate([
-      { $match: { type: 'Expense', category: { $ne: 'Materials' } } },
+      { $match: { type: 'Expense', category: { $nin: ['Materials', 'Labor'] } } },
       { $group: { _id: { $substr: ['$date', 5, 2] }, total: { $sum: '$amount' } } }
     ]);
 
@@ -217,7 +217,7 @@ router.get('/projects', async (req, res) => {
       const spentMaterial = spentMaterialResult.length > 0 ? spentMaterialResult[0].total : 0;
 
       const spentFinanceResult = await Finance.aggregate([
-        { $match: { project: p._id, type: 'Expense', category: { $ne: 'Materials' } } },
+        { $match: { project: p._id, type: 'Expense', category: { $nin: ['Materials', 'Labor'] } } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]);
       const spentFinance = spentFinanceResult.length > 0 ? spentFinanceResult[0].total : 0;
