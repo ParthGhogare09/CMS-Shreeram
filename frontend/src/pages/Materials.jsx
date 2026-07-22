@@ -246,33 +246,54 @@ const Materials = () => {
               const isExpanded = selectedMaterialId === (mat.id || mat._id);
               const isLowStock = mat.stock > 0 && mat.stock < (mat.lowStockWarning || 50);
               const isOutOfStock = mat.stock <= 0;
-              const statusClass = isOutOfStock ? 'status-out-of-stock' : isLowStock ? 'status-low-stock' : 'status-in-stock';
+              
+              const batches = mat.batches || [];
+              const latestBatch = batches.length > 0 ? batches[batches.length - 1] : null;
+              const latestRate = latestBatch ? latestBatch.purchaseRate : mat.purchaseAmount;
+              const totalValue = batches.length > 0
+                ? batches.reduce((sum, b) => sum + (b.quantityAvailable * b.purchaseRate), 0)
+                : (mat.stock * mat.purchaseAmount);
 
               return (
                 <div 
                   key={mat.id || mat._id}
-                  className={`material-scroll-card ${statusClass} ${isExpanded ? 'active' : ''}`}
+                  className={`material-scroll-card ${isExpanded ? 'active' : ''}`}
                   onClick={() => setSelectedMaterialId(isExpanded ? null : (mat.id || mat._id))}
                 >
-                  <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-text-main)' }} title={mat.name}>
-                    {mat.name}
-                  </h3>
+                  {/* Card Title Header */}
+                  <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.35rem', marginBottom: '0.15rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: 'var(--color-text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={mat.name}>
+                      {mat.name}
+                    </h3>
+                  </div>
                   
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', marginTop: 'auto' }}>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Package size={13} style={{ opacity: 0.7 }} /> Stock:
-                    </span>
-                    <span style={{ fontWeight: 800, color: isOutOfStock ? 'var(--color-danger)' : 'var(--color-text-main)' }}>
-                      {mat.stock} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>{mat.unit}</span>
-                    </span>
+                  {/* Info Grid (small text layout) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem 0.5rem', fontSize: '0.74rem' }}>
+                    <div>
+                      <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.2px' }}>Stock</span>
+                      <strong style={{ color: isOutOfStock ? 'var(--color-danger)' : 'var(--color-text-main)' }}>{mat.stock} {mat.unit}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.2px' }}>Rate</span>
+                      <strong>₹{latestRate}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.2px' }}>Batches</span>
+                      <strong>{batches.length || 1}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.2px' }}>Value</span>
+                      <strong style={{ color: 'var(--color-primary)' }}>₹{totalValue >= 100000 ? `${(totalValue / 100000).toFixed(1)}L` : totalValue.toLocaleString('en-IN')}</strong>
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.15rem' }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isOutOfStock ? 'var(--color-danger)' : isLowStock ? 'var(--color-warning)' : 'var(--color-success)' }}>
-                      {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
+                  {/* Card Footer Status Badge */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem', paddingTop: '0.25rem', borderTop: '1px dashed var(--border-color)' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: isOutOfStock ? 'var(--color-danger)' : isLowStock ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                      {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                     </span>
                     {isExpanded && (
-                      <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-primary)' }}>Selected</span>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-primary)' }}>ACTIVE</span>
                     )}
                   </div>
                 </div>

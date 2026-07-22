@@ -1733,7 +1733,7 @@ td {
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md, 12px);
   padding: 0.85rem 1rem;
-  width: 175px;
+  width: 195px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1743,28 +1743,6 @@ td {
   overflow: hidden;
   cursor: pointer;
   user-select: none;
-}
-
-.material-scroll-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  transition: var(--transition-fast);
-}
-
-.material-scroll-card.status-in-stock::before {
-  background-color: var(--color-success);
-}
-
-.material-scroll-card.status-low-stock::before {
-  background-color: var(--color-warning);
-}
-
-.material-scroll-card.status-out-of-stock::before {
-  background-color: var(--color-danger);
 }
 
 .material-scroll-card:hover {
