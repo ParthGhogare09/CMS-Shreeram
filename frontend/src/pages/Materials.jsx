@@ -7,8 +7,13 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import FilterModal from '../components/FilterModal';
 
-const formatCurrency = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN')}`;
-const formatMaterialId = (id) => id ? `M-${id.toString().slice(-5).toUpperCase()}` : '';
+const formatCurrency = (amount) => `₹${(amount || 0).toLocaleString('en-IN')}`;
+const formatMaterialId = (id) => `M${String(id || '').slice(-3).padStart(3, '0')}`;
+
+const normalizeTitleCase = (str) => {
+  if (!str) return '';
+  return str.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+};
 
 const Materials = () => {
   const {
@@ -53,7 +58,7 @@ const Materials = () => {
       id: showEditMaterial ? currentMaterial.id : undefined,
       name: currentMaterial.name,
       stock: Number(currentMaterial.stock),
-      unit: currentMaterial.unit,
+      unit: normalizeTitleCase(currentMaterial.unit),
       purchaseAmount: Number(currentMaterial.purchaseAmount)
     });
     setShowAddMaterial(false);

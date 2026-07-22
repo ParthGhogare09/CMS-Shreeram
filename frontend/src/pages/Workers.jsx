@@ -23,6 +23,11 @@ import { exportToExcel } from '../utils/exportToExcel';
 import FilterModal from '../components/FilterModal';
 
 const formatWorkerId = (id) => id ? `W-${id.toString().slice(-5).toUpperCase()}` : '';
+
+const normalizeTitleCase = (str) => {
+  if (!str) return '';
+  return str.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+};
 const formatCurrency = (amount) => `₹${amount.toLocaleString('en-IN')}`;
 
 const getAmountPaid = (log) => log.amountPaid !== undefined ? log.amountPaid : (log.paymentStatus === 'Paid' ? log.wage : 0);
@@ -67,6 +72,9 @@ const Workers = () => {
 
   // Monthly Summary state
   const [month, setMonth] = useState('2026-05');
+  const [summaryFilterType, setSummaryFilterType] = useState('month');
+  const [summaryStartDate, setSummaryStartDate] = useState('');
+  const [summaryEndDate, setSummaryEndDate] = useState('');
 
   // Filter states
   const [roleFilter, setRoleFilter] = useState('All');
@@ -98,7 +106,7 @@ const Workers = () => {
     }
     addWorkerAction({
       name: currentWorker.name,
-      role: currentWorker.role,
+      role: normalizeTitleCase(currentWorker.role),
       wage: Number(currentWorker.wage),
       contact: currentWorker.contact,
       status: currentWorker.status
@@ -115,7 +123,7 @@ const Workers = () => {
     }
     updateWorkerAction(currentWorker.id, {
       name: currentWorker.name,
-      role: currentWorker.role,
+      role: normalizeTitleCase(currentWorker.role),
       wage: Number(currentWorker.wage),
       contact: currentWorker.contact,
       status: currentWorker.status
@@ -275,7 +283,7 @@ const Workers = () => {
             <label>Worker Role</label>
             <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
               <option value="All">All Roles</option>
-              {Array.from(new Set(['Foreman', 'Mason', 'Electrician', 'Plumber', 'Helper', ...workers.map(w => w.role)])).filter(Boolean).map((role, idx) => (
+              {Array.from(new Set(['Foreman', 'Mason', 'Electrician', 'Plumber', 'Helper', ...workers.map(w => normalizeTitleCase(w.role))])).filter(Boolean).map((role, idx) => (
                 <option key={idx} value={role}>{role}</option>
               ))}
             </select>
@@ -831,8 +839,19 @@ const Workers = () => {
 
   // Tab 5: Monthly Summary
   const renderMonthlySummary = () => {
-    // Group logs by worker ID for the selected month
-    const monthlyLogs = dailyLogs.filter(l => l.month === month);
+    // Group logs by worker ID for the selected month or custom date range
+    const monthlyLogs = dailyLogs.filter(l => {
+      if (summaryFilterType === 'month') {
+        return l.month === month;
+      } else {
+        if (!summaryStartDate && !summaryEndDate) return true;
+        const logDate = l.date ? l.date.split('T')[0] : '';
+        if (summaryStartDate && logDate < summaryStartDate) return false;
+        if (summaryEndDate && logDate > summaryEndDate) return false;
+        return true;
+      }
+    });
+
     const summaryMap = {};
     
     monthlyLogs.forEach(log => {
@@ -861,20 +880,96 @@ const Workers = () => {
 
     return (
       <div className="card">
-        <h2 className="card-title">Monthly Summary</h2>
-        <div className="labour-filter-bar">
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <Calendar size={18} color="var(--color-text-muted)" />
-            <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <h2 className="card-title" style={{ margin: 0 }}>Labour Summary & Roster</h2>
+          <div className="action-toolbar" style={{ width: 'auto' }}>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = summaryData.map(data => ({
+                  'Worker ID': formatWorkerId(data.id),
+                  'Name': data.name,
+                  'Total Days Worked': `${data.daysWorked} Days`,
+                  'Total Earned (₹)': data.totalWage,
+                  'Paid (₹)': data.wagePaid,
+                  'Pending (₹)': data.wagePending
+                }));
+                const label = summaryFilterType === 'month' ? `Labour_Summary_${month}` : `Labour_Summary_${summaryStartDate || 'Start'}_to_${summaryEndDate || 'End'}`;
+                exportToExcel(exportData, label);
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', width: '250px'}}>
-            <Search size={18} color="var(--color-text-muted)" />
-            <SearchWithSuggestions 
-              value={summarySearch}
-              onChange={setSummarySearch}
-              placeholder="Search by worker name..."
-              suggestions={workers.map(w => w.name)}
-            />
+        </div>
+
+        <div className="labour-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', padding: '1rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--border-radius-md)', marginBottom: '1.25rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Filter Type</label>
+            <select 
+              value={summaryFilterType} 
+              onChange={e => setSummaryFilterType(e.target.value)}
+              style={{ padding: '0.45rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem' }}
+            >
+              <option value="month">By Single Month</option>
+              <option value="range">By Custom Date Range</option>
+            </select>
+          </div>
+
+          {summaryFilterType === 'month' ? (
+            <div className="form-group" style={{ margin: 0 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Select Month</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Calendar size={16} color="var(--color-text-muted)" />
+                <input 
+                  type="month" 
+                  value={month} 
+                  onChange={e => setMonth(e.target.value)} 
+                  style={{ padding: '0.4rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Start Date</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Calendar size={16} color="var(--color-text-muted)" />
+                  <input 
+                    type="date" 
+                    value={summaryStartDate} 
+                    onChange={e => setSummaryStartDate(e.target.value)} 
+                    style={{ padding: '0.4rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>End Date</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Calendar size={16} color="var(--color-text-muted)" />
+                  <input 
+                    type="date" 
+                    value={summaryEndDate} 
+                    onChange={e => setSummaryEndDate(e.target.value)} 
+                    style={{ padding: '0.4rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="form-group" style={{ margin: 0, marginLeft: 'auto', width: '250px' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Search Worker</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Search size={16} color="var(--color-text-muted)" />
+              <SearchWithSuggestions 
+                value={summarySearch}
+                onChange={setSummarySearch}
+                placeholder="Search by worker name..."
+                suggestions={workers.map(w => w.name)}
+              />
+            </div>
           </div>
         </div>
 
@@ -903,7 +998,7 @@ const Workers = () => {
               ))}
               {summaryData.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '1rem' }}>No records for this month.</td>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '1rem' }}>No records found for the selected criteria.</td>
                 </tr>
               )}
             </tbody>

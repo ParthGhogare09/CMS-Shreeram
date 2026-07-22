@@ -66,7 +66,8 @@ const Dashboard = () => {
 
     if (workers && workers.length > 0) {
       workers.forEach(w => {
-        const role = w.role || 'Unspecified';
+        const rawRole = w.role ? w.role.trim() : 'Unspecified';
+        const role = rawRole.split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
         roleCounts[role] = (roleCounts[role] || 0) + 1;
       });
     } else {
