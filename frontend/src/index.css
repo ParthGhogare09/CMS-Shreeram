@@ -817,8 +817,29 @@ td {
 .worker-profile-details {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1.5rem;
+}
+
+.detail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+}
+
+.detail-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-main);
 }
 
 .total-cost-panel {
@@ -1495,7 +1516,7 @@ td {
   font-weight: 600;
 }
 
-.date-range-row, .filter-type-row {
+.date-range-row {
   display: flex;
   gap: 1rem;
   align-items: center;
@@ -1615,14 +1636,14 @@ td {
     margin: 0 !important;
   }
 
-  .date-range-row, .filter-type-row {
+  .date-range-row {
     display: flex !important;
     flex-direction: row !important;
     gap: 0.5rem !important;
     width: 100% !important;
   }
 
-  .date-range-row .form-group, .filter-type-row .form-group {
+  .date-range-row .form-group {
     flex: 1 !important;
   }
 

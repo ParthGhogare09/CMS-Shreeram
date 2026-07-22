@@ -568,35 +568,37 @@ const Workers = () => {
     return (
       <div className="card">
         <h2 className="card-title">Worker Lookup</h2>
-        <div className="labour-filter-bar" style={{ marginBottom: '2rem' }}>
-          <Search size={18} color="var(--color-text-muted)" />
-          <div style={{ width: '300px' }}>
-            <SearchWithSuggestions 
-              value={searchId}
-              onChange={setSearchId}
-              placeholder="Search by ID (e.g. W001) or Name..."
-              suggestions={workers.map(w => w.name)}
-              onSelect={(name) => {
-                setSearchId(name);
-                const w = workers.find(w => w.name.toLowerCase() === name.toLowerCase());
-                setSelectedWorker(w || null);
-              }}
-            />
+        <div className="labour-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '200px' }}>
+            <Search size={18} color="var(--color-text-muted)" />
+            <div style={{ flex: 1 }}>
+              <SearchWithSuggestions 
+                value={searchId}
+                onChange={setSearchId}
+                placeholder="Search worker name or ID..."
+                suggestions={workers.map(w => w.name)}
+                onSelect={(name) => {
+                  setSearchId(name);
+                  const w = workers.find(w => w.name.toLowerCase() === name.toLowerCase());
+                  setSelectedWorker(w || null);
+                }}
+              />
+            </div>
           </div>
-          <button className="btn btn-primary" onClick={handleSearch}>Search</button>
+          <button className="btn btn-primary" onClick={handleSearch} style={{ minWidth: '80px' }}>Search</button>
         </div>
 
         {selectedWorker && (
           <>
-            <div className="worker-profile-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-              <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div className="worker-profile-avatar">
+            <div className="worker-profile-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
+                <div className="worker-profile-avatar" style={{ width: '80px', height: '80px', fontSize: '2rem', flexShrink: 0 }}>
                   {selectedWorker.name.charAt(0)}
                 </div>
-                <div className="worker-profile-details">
+                <div className="worker-profile-details" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.25rem', flex: 1 }}>
                   <div className="detail-group">
                     <span className="detail-label">Worker ID</span>
-                    <span className="detail-value">{formatWorkerId(selectedWorker.id || selectedWorker._id)}</span>
+                    <span className="detail-value" style={{ fontWeight: 700 }}>{formatWorkerId(selectedWorker.id || selectedWorker._id)}</span>
                   </div>
                   <div className="detail-group">
                     <span className="detail-label">Full Name</span>
@@ -608,36 +610,36 @@ const Workers = () => {
                   </div>
                   <div className="detail-group">
                     <span className="detail-label">Status</span>
-                    <span className={`badge ${selectedWorker.status === 'Active' ? 'badge-active' : 'badge-completed'}`} style={{ width: 'fit-content' }}>
+                    <span className={`badge ${selectedWorker.status === 'Active' ? 'badge-active' : 'badge-completed'}`} style={{ width: 'fit-content', marginTop: '2px' }}>
                       {selectedWorker.status}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', margin: 0, gap: '1rem' }}>
-                <div className="summary-card" style={{ padding: '1rem', marginBottom: 0, backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
+              <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', margin: 0, gap: '1rem', width: '100%' }}>
+                <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
                   <div className="summary-content">
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Total Days</h4>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{totalDays}</div>
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Total Days</h4>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-info)' }}>{totalDays} Days</div>
                   </div>
                 </div>
-                <div className="summary-card" style={{ padding: '1rem', marginBottom: 0, backgroundColor: '#fffbeb', borderColor: '#fef3c7' }}>
+                <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fffbeb', borderColor: '#fef3c7' }}>
                   <div className="summary-content">
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Total Earnings</h4>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{formatCurrency(totalEarnings)}</div>
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Total Earnings</h4>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#b45309' }}>{formatCurrency(totalEarnings)}</div>
                   </div>
                 </div>
-                <div className="summary-card" style={{ padding: '1rem', marginBottom: 0, backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
+                <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
                   <div className="summary-content">
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Wage Paid</h4>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--color-success)' }}>{formatCurrency(wagePaid)}</div>
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Wage Paid</h4>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-success)' }}>{formatCurrency(wagePaid)}</div>
                   </div>
                 </div>
-                <div className="summary-card" style={{ padding: '1rem', marginBottom: 0, backgroundColor: '#fef2f2', borderColor: '#fee2e2' }}>
+                <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fef2f2', borderColor: '#fee2e2' }}>
                   <div className="summary-content">
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Remaining Wage</h4>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>{formatCurrency(remainingWage)}</div>
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Remaining Wage</h4>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>{formatCurrency(remainingWage)}</div>
                   </div>
                 </div>
               </div>
@@ -880,45 +882,41 @@ const Workers = () => {
 
     return (
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h2 className="card-title" style={{ margin: 0 }}>Labour Summary & Roster</h2>
+          <div className="action-toolbar" style={{ width: 'auto' }}>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = summaryData.map(data => ({
+                  'Worker ID': formatWorkerId(data.id),
+                  'Name': data.name,
+                  'Total Days Worked': `${data.daysWorked} Days`,
+                  'Total Earned (₹)': data.totalWage,
+                  'Paid (₹)': data.wagePaid,
+                  'Pending (₹)': data.wagePending
+                }));
+                const label = summaryFilterType === 'month' ? `Labour_Summary_${month}` : `Labour_Summary_${summaryStartDate || 'Start'}_to_${summaryEndDate || 'End'}`;
+                exportToExcel(exportData, label);
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+          </div>
         </div>
 
         <div className="labour-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', padding: '1rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--border-radius-md)', marginBottom: '1.25rem' }}>
-          <div className="filter-type-row" style={{ display: 'flex', gap: '0.5rem', width: '100%', flex: 1, minWidth: '240px' }}>
-            <div className="form-group" style={{ margin: 0, flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Filter Type</label>
-              <select 
-                value={summaryFilterType} 
-                onChange={e => setSummaryFilterType(e.target.value)}
-                style={{ padding: '0.45rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem', width: '100%' }}
-              >
-                <option value="month">By Single Month</option>
-                <option value="range">By Custom Date Range</option>
-              </select>
-            </div>
-
-            <div className="form-group" style={{ margin: 0, width: 'auto', flexShrink: 0 }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'transparent', marginBottom: '4px', userSelect: 'none', pointerEvents: 'none' }}>Download</label>
-              <button 
-                className="btn btn-secondary" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', height: '32px' }}
-                onClick={() => {
-                  const exportData = summaryData.map(data => ({
-                    'Worker ID': formatWorkerId(data.id),
-                    'Name': data.name,
-                    'Total Days Worked': `${data.daysWorked} Days`,
-                    'Total Earned (₹)': data.totalWage,
-                    'Paid (₹)': data.wagePaid,
-                    'Pending (₹)': data.wagePending
-                  }));
-                  const label = summaryFilterType === 'month' ? `Labour_Summary_${month}` : `Labour_Summary_${summaryStartDate || 'Start'}_to_${summaryEndDate || 'End'}`;
-                  exportToExcel(exportData, label);
-                }}
-              >
-                <Download size={14} /> <span className="btn-text">Export Excel</span>
-              </button>
-            </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Filter Type</label>
+            <select 
+              value={summaryFilterType} 
+              onChange={e => setSummaryFilterType(e.target.value)}
+              style={{ padding: '0.45rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.85rem' }}
+            >
+              <option value="month">By Single Month</option>
+              <option value="range">By Custom Date Range</option>
+            </select>
           </div>
 
           {summaryFilterType === 'month' ? (
