@@ -15,14 +15,14 @@ const SearchWithSuggestions = ({ value, onChange, placeholder, suggestions, onSe
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const filteredSuggestions = value
-    ? [...new Set(suggestions)]
-        .filter(name => 
-          name.toLowerCase().includes(value.toLowerCase()) && 
-          name.toLowerCase() !== value.toLowerCase()
-        )
-        .slice(0, 5)
-    : [];
+  const filteredSuggestions = [...new Set(suggestions)]
+    .filter(name => 
+      !value || (
+        name.toLowerCase().includes(value.toLowerCase()) && 
+        name.toLowerCase() !== value.toLowerCase()
+      )
+    )
+    .slice(0, 10);
 
   return (
     <div ref={containerRef} className="search-suggest-container" style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', ...style }}>

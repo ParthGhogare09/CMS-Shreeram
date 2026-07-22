@@ -592,9 +592,6 @@ const Workers = () => {
           <>
             <div className="worker-profile-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', alignItems: 'stretch' }}>
               <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
-                <div className="worker-profile-avatar" style={{ width: '80px', height: '80px', fontSize: '2rem', flexShrink: 0 }}>
-                  {selectedWorker.name.charAt(0)}
-                </div>
                 <div className="worker-profile-details" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.25rem', flex: 1 }}>
                   <div className="detail-group">
                     <span className="detail-label">Worker ID</span>
