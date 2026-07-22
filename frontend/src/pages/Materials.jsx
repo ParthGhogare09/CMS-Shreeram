@@ -225,18 +225,25 @@ const Materials = () => {
 
       {activeTab === 'stock' ? (
         <>
-          {/* Material Stock Grid Cards */}
-          <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          {/* Search for Material Cards */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', maxWidth: '300px', width: '100%' }}>
+            <Search size={16} color="var(--color-text-muted)" />
+            <div style={{ flex: 1 }}>
+              <SearchWithSuggestions 
+                value={materialSearch}
+                onChange={setMaterialSearch}
+                placeholder="Search raw material cards..."
+                suggestions={materials.map(m => m.name)}
+              />
+            </div>
+          </div>
+
+          {/* Material Stock Side Scrollable Cards */}
+          <div className="side-scrollable-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.75rem', paddingBottom: '0.75rem', marginBottom: '1.5rem', width: '100%', scrollbarWidth: 'thin' }}>
             {filteredMaterials.map(mat => {
               const isExpanded = selectedMaterialId === (mat.id || mat._id);
               const isLowStock = mat.stock > 0 && mat.stock < (mat.lowStockWarning || 50);
               const isOutOfStock = mat.stock <= 0;
-              
-              const batches = mat.batches || [];
-              const uniqueRates = Array.from(new Set(batches.filter(b => b.quantityAvailable > 0).map(b => b.purchaseRate)));
-              const rateString = uniqueRates.length > 0 
-                ? uniqueRates.map(r => `₹${r}`).join(', ') 
-                : `₹${mat.purchaseAmount}`;
 
               return (
                 <div 
@@ -244,66 +251,34 @@ const Materials = () => {
                   className="card"
                   style={{
                     cursor: 'pointer',
-                    padding: '1.15rem',
+                    padding: '0.75rem 1rem',
                     border: isExpanded ? '1px solid var(--color-primary)' : '1px solid var(--border-color)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.6rem',
-                    transition: 'var(--transition-fast)'
+                    gap: '0.4rem',
+                    width: '180px',
+                    flexShrink: 0,
+                    transition: 'var(--transition-fast)',
+                    boxShadow: 'var(--shadow-sm)'
                   }}
                   onClick={() => setSelectedMaterialId(isExpanded ? null : (mat.id || mat._id))}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>{mat.name}</h3>
-                    <span className={`badge ${isOutOfStock ? 'badge-pending' : isLowStock ? 'badge-planning' : 'badge-active'}`}>
-                      {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                    <span style={{ color: 'var(--color-text-muted)' }}>Available Stock:</span>
+                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={mat.name}>{mat.name}</h3>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>Stock:</span>
                     <span style={{ fontWeight: 700, color: isOutOfStock ? 'var(--color-danger)' : 'var(--color-text-main)' }}>{mat.stock} {mat.unit}</span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--color-text-muted)' }}>Stock Rates:</span>
-                    <span 
-                      style={{ 
-                        fontWeight: 600, 
-                        color: 'var(--color-primary)', 
-                        textAlign: 'right', 
-                        maxWidth: '130px', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap' 
-                      }} 
-                      title={rateString}
-                    >
-                      {rateString}
-                    </span>
-                  </div>
-
-                  <div style={{ 
-                    fontSize: '0.72rem', 
-                    color: 'var(--color-text-muted)', 
-                    borderTop: '1px dashed var(--border-color)', 
-                    paddingTop: '0.5rem', 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    marginTop: '0.25rem'
-                  }}>
-                    <span>{batches.length || 1} Purchase batch{(batches.length !== 1) ? 'es' : ''}</span>
-                    <span style={{ fontWeight: 600, color: 'var(--color-info)' }}>
-                      {isExpanded ? 'Collapse ▲' : 'View Batches ▼'}
-                    </span>
-                  </div>
+                  <span className={`badge ${isOutOfStock ? 'badge-pending' : isLowStock ? 'badge-planning' : 'badge-active'}`} style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem', width: 'fit-content', marginTop: '0.1rem' }}>
+                    {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
+                  </span>
                 </div>
               );
             })}
             {filteredMaterials.length === 0 && (
-              <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
-                No materials found matching search filters.
+              <div className="card" style={{ flex: 1, textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)', minWidth: '200px' }}>
+                No materials found.
               </div>
             )}
           </div>
