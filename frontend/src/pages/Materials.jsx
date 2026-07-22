@@ -205,9 +205,10 @@ const Materials = () => {
       </div>
 
       {/* Tab Nav Pills */}
-      <div className="labour-nav-pills" style={{ marginBottom: '1.5rem', width: 'fit-content' }}>
+      <div className="labour-nav-pills" style={{ marginBottom: '1.5rem', width: '100%', display: 'flex', gap: '0.5rem' }}>
         <button 
           className={`nav-pill ${activeTab === 'stock' ? 'active' : ''}`}
+          style={{ flex: 1, justifyContent: 'center' }}
           onClick={() => {
             setActiveTab('stock');
             setSelectedMaterialId(null);
@@ -217,6 +218,7 @@ const Materials = () => {
         </button>
         <button 
           className={`nav-pill ${activeTab === 'usage' ? 'active' : ''}`}
+          style={{ flex: 1, justifyContent: 'center' }}
           onClick={() => setActiveTab('usage')}
         >
           <Truck size={15} /> Usage Logs (Distributions)
@@ -226,9 +228,9 @@ const Materials = () => {
       {activeTab === 'stock' ? (
         <>
           {/* Search for Material Cards */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', maxWidth: '300px', width: '100%' }}>
-            <Search size={16} color="var(--color-text-muted)" />
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', maxWidth: '450px', width: '100%' }}>
+            <Search size={16} color="var(--color-text-muted)" style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, position: 'relative' }}>
               <SearchWithSuggestions 
                 value={materialSearch}
                 onChange={setMaterialSearch}
