@@ -21,6 +21,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import { exportToExcel } from '../utils/exportToExcel';
 import FilterModal from '../components/FilterModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 const formatWorkerId = (id) => id ? `W-${id.toString().slice(-5).toUpperCase()}` : '';
 
@@ -82,6 +83,10 @@ const Workers = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
   const [showMasterFilterModal, setShowMasterFilterModal] = useState(false);
   const [showLogFilterModal, setShowLogFilterModal] = useState(false);
+
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
   // Search suggestion states for tabs
   const [masterSearch, setMasterSearch] = useState('');
@@ -153,6 +158,41 @@ const Workers = () => {
       alert('Please select or type a valid active site/project from the list.');
       return;
     }
+
+    // === ALLOCATION CONFLICT CHECK ===
+    // Only validate when adding a new log (not editing)
+    if (!showEditLog) {
+      const existingOnDate = dailyLogs.filter(l =>
+        (l.workerId || l.worker)?.toString() === (worker.id || worker._id).toString() &&
+        l.date === currentLog.date
+      );
+
+      if (existingOnDate.length > 0) {
+        // Rule 1: Duplicate — same worker, same date, same project
+        const sameProject = existingOnDate.find(l =>
+          (l.project || '').toLowerCase() === currentLog.project.trim().toLowerCase()
+        );
+        if (sameProject) {
+          alert(`${worker.name} is already allocated to "${currentLog.project}" on ${currentLog.date}. Cannot add a duplicate entry.`);
+          return;
+        }
+
+        // Rule 2: Worker fully occupied at another project (Full Day or Overtime)
+        const fullDayLog = existingOnDate.find(l => l.workTime === 'Full Day' || l.workTime === 'Overtime');
+        if (fullDayLog) {
+          alert(`${worker.name} is already occupied at "${fullDayLog.project}" with a ${fullDayLog.workTime} on ${currentLog.date}. Cannot allocate to another project.`);
+          return;
+        }
+
+        // Rule 3: Trying to add Full Day/Overtime when worker already has a Half Day elsewhere
+        if (currentLog.workTime === 'Full Day' || currentLog.workTime === 'Overtime') {
+          const halfDayLog = existingOnDate[0];
+          alert(`${worker.name} already has a Half Day allocation at "${halfDayLog.project}" on ${currentLog.date}. Cannot add a Full Day entry.`);
+          return;
+        }
+      }
+    }
+    // === END CONFLICT CHECK ===
 
     let wageMultiplier = 1;
     if (currentLog.workTime === 'Half Day') wageMultiplier = 0.5;
@@ -351,9 +391,8 @@ const Workers = () => {
                       style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
                       title="Delete Worker"
                       onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete worker "${worker.name}"? This will delete all attendance logs for this worker.`)) {
-                          deleteWorkerAction(worker.id || worker._id);
-                        }
+                        setDeleteTarget({ id: worker.id || worker._id, name: worker.name });
+                        setShowDeleteModal(true);
                       }}
                     >
                       <Trash2 size={14} />
@@ -418,18 +457,31 @@ const Workers = () => {
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                 onClick={() => {
+                  const totalDaysAll = filteredLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + (l.workTime === 'Full Day' ? 1 : l.workTime === 'Half Day' ? 0.5 : l.workTime === 'Overtime' ? 1.5 : 0), 0);
+                  const totalWageAll = filteredLogs.reduce((s, l) => s + (l.wage || l.wageAtTime || 0), 0);
+                  const totalPaidAll = filteredLogs.reduce((s, l) => s + getAmountPaid(l), 0);
+                  const totalPendingAll = filteredLogs.reduce((s, l) => s + getAmountPending(l), 0);
                   const exportData = filteredLogs.map(log => ({
                     'Date': formatDate(log.date),
                     'Worker Name': log.name,
-                    'Project': log.project || '-',
+                    'Site / Project': log.project || '-',
+                    'Role': log.role || '-',
                     'Attendance Status': log.status,
                     'Work Time': log.workTime,
-                    'Daily Rate (₹)': log.rate || log.wageAtTime,
-                    'Calculated Wage (₹)': log.wage || log.wageAtTime,
-                    'Paid (₹)': getAmountPaid(log),
-                    'Pending (₹)': getAmountPending(log),
+                    'Daily Rate (Rs.)': log.rate || log.wageAtTime,
+                    'Calculated Wage (Rs.)': log.wage || log.wageAtTime,
+                    'Paid (Rs.)': getAmountPaid(log),
+                    'Pending (Rs.)': getAmountPending(log),
                     'Payment Status': log.paymentStatus
                   }));
+                  // Append summary row so PDF/Excel summary picks it up
+                  exportData._summaryMeta = {
+                    totalDays: totalDaysAll,
+                    totalWage: totalWageAll,
+                    totalPaid: totalPaidAll,
+                    totalPending: totalPendingAll,
+                    uniqueWorkers: new Set(filteredLogs.map(l => l.workerId)).size
+                  };
                   exportToExcel(exportData, 'Daily_Attendance_Logs');
                 }}
               >
@@ -780,6 +832,29 @@ const Workers = () => {
               />
             </div>
           )}
+          {project && projectLogs.length > 0 && (
+            <button
+              className="btn btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = projectLogs.sort((a, b) => new Date(a.date) - new Date(b.date)).map(log => ({
+                  'Date': formatDate(log.date),
+                  'Site / Project': log.project || project,
+                  'Worker Name': log.name,
+                  'Worker ID': formatWorkerId(log.workerId),
+                  'Role': log.role || '-',
+                  'Work Time': log.workTime,
+                  'Wage Incurred (Rs.)': log.wage,
+                  'Paid (Rs.)': getAmountPaid(log),
+                  'Pending (Rs.)': getAmountPending(log),
+                  'Payment Status': log.paymentStatus
+                }));
+                exportToExcel(exportData, `Project_Labour_${project.replace(/\s+/g, '_')}`);
+              }}
+            >
+              <Download size={14} /> Export Report
+            </button>
+          )}
         </div>
 
         {project && selectedProj && (
@@ -936,12 +1011,20 @@ const Workers = () => {
                 const exportData = summaryData.map(data => ({
                   'Worker ID': formatWorkerId(data.id),
                   'Name': data.name,
+                  'Role': data.role || '-',
                   'Total Days Worked': `${data.daysWorked} Days`,
-                  'Total Earned (₹)': data.totalWage,
-                  'Paid (₹)': data.wagePaid,
-                  'Pending (₹)': data.wagePending
+                  'Total Earned (Rs.)': data.totalWage,
+                  'Paid (Rs.)': data.wagePaid,
+                  'Pending (Rs.)': data.wagePending
                 }));
-                const label = summaryFilterType === 'month' ? `Labour_Summary_${month}` : `Labour_Summary_${summaryStartDate || 'Start'}_to_${summaryEndDate || 'End'}`;
+                let label;
+                if (summaryFilterType === 'month') {
+                  label = `Labour_Monthly_Summary_${month}`;
+                } else {
+                  const from = summaryStartDate || 'Start';
+                  const to = summaryEndDate || 'End';
+                  label = `Labour_Summary_${from}_to_${to}`;
+                }
                 exportToExcel(exportData, label);
               }}
             >
@@ -1293,6 +1376,19 @@ const Workers = () => {
           </div>
         </div>
       )}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+        onConfirm={(mode) => {
+          if (deleteTarget) {
+            deleteWorkerAction(deleteTarget.id, mode);
+          }
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+        }}
+        entityType="Worker"
+        entityName={deleteTarget?.name || ''}
+      />
     </div>
   );
 };

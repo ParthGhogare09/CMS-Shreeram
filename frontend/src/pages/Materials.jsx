@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Package, Truck, AlertTriangle, Plus, Search, Trash2, Edit, Download, Filter, X, RotateCcw } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
-import { formatDate } from '../utils';
+import { formatDate, getBatchLabels } from '../utils';
 import { exportToExcel } from '../utils/exportToExcel';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import FilterModal from '../components/FilterModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toLocaleString('en-IN')}`;
 const formatMaterialId = (id) => `M${String(id || '').slice(-3).padStart(3, '0')}`;
@@ -39,12 +40,13 @@ const Materials = () => {
   const [currentMaterial, setCurrentMaterial] = useState({ id: '', name: '', stock: '', unit: 'Bags', purchaseAmount: '', date: new Date().toISOString().split('T')[0] });
 
   const [showEditBatch, setShowEditBatch] = useState(false);
-  const [selectedBatchIndex, setSelectedBatchIndex] = useState(null);
+  const [selectedEditBatchIdx, setSelectedEditBatchIdx] = useState(null);
   const [currentBatch, setCurrentBatch] = useState({ purchaseRate: '', purchaseDate: '', quantityPurchased: '' });
 
   const [showAddUsage, setShowAddUsage] = useState(false);
   const [showEditUsage, setShowEditUsage] = useState(false);
   const [currentUsage, setCurrentUsage] = useState({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+  const [selectedBatchIndex, setSelectedBatchIndex] = useState(null); // Track which batch was selected for deduction, independently of rate
 
   const [materialSearch, setMaterialSearch] = useState('');
   const [usageSearch, setUsageSearch] = useState('');
@@ -52,6 +54,10 @@ const Materials = () => {
   const [usageProjectFilter, setUsageProjectFilter] = useState('All');
   const [showStockFilterModal, setShowStockFilterModal] = useState(false);
   const [showUsageFilterModal, setShowUsageFilterModal] = useState(false);
+
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
   // Handlers for Material Stock
   const handleSaveMaterial = (e) => {
@@ -87,13 +93,13 @@ const Materials = () => {
       alert('Purchased Quantity must be greater than 0.');
       return;
     }
-    editBatchAction(selectedMaterialId, selectedBatchIndex, {
+    editBatchAction(selectedMaterialId, selectedEditBatchIdx, {
       purchaseRate: Number(currentBatch.purchaseRate),
       purchaseDate: currentBatch.purchaseDate,
       quantityPurchased: Number(currentBatch.quantityPurchased)
     });
     setShowEditBatch(false);
-    setSelectedBatchIndex(null);
+    setSelectedEditBatchIdx(null);
   };
 
   // Handlers for Material Usage
@@ -148,10 +154,12 @@ const Materials = () => {
       quantity: Number(currentUsage.quantity),
       unit: unit,
       distributionRate: Number(currentUsage.distributionRate),
+      selectedBatchIndex: selectedBatchIndex,
       date: currentUsage.date
     });
     setShowAddUsage(false);
     setShowEditUsage(false);
+    setSelectedBatchIndex(null);
     setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
   };
 
@@ -193,6 +201,7 @@ const Materials = () => {
                 return;
               }
               setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+              setSelectedBatchIndex(null);
               setShowAddUsage(true);
             }}>
               <Truck size={16} /> Log Usage
@@ -356,6 +365,7 @@ const Materials = () => {
             const selectedMat = materials.find(m => (m.id || m._id) === selectedMaterialId);
             if (!selectedMat) return null;
             const batches = selectedMat.batches || [];
+            const batchLabels = getBatchLabels(batches);
             
             return (
               <div className="card" style={{ marginBottom: '2rem', padding: '1.25rem 1.5rem', border: '1px solid var(--color-primary)' }}>
@@ -385,10 +395,8 @@ const Materials = () => {
                       className="btn btn-secondary text-danger" 
                       style={{ color: '#ef4444' }}
                       onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete material "${selectedMat.name}"? This will delete all usage logs for this material.`)) {
-                          deleteMaterialAction(selectedMat.id || selectedMat._id);
-                          setSelectedMaterialId(null);
-                        }
+                        setDeleteTarget({ id: selectedMat.id || selectedMat._id, name: selectedMat.name });
+                        setShowDeleteModal(true);
                       }}
                     >
                       <Trash2 size={14} /> Delete Material
@@ -414,7 +422,7 @@ const Materials = () => {
                     <tbody>
                       {batches.map((b, idx) => (
                         <tr key={idx}>
-                          <td data-label="Batch #">Batch {idx + 1}</td>
+                          <td data-label="Batch #">{batchLabels[idx] || `Batch ${idx + 1}`}</td>
                           <td data-label="Purchase Date">{formatDate(b.purchaseDate)}</td>
                           <td data-label="Purchase Rate" style={{ fontWeight: 600 }}>₹{b.purchaseRate?.toLocaleString('en-IN') || 0}</td>
                           <td data-label="Purchased Qty">{b.quantityPurchased} {selectedMat.unit}</td>
@@ -431,7 +439,7 @@ const Materials = () => {
                               style={{ padding: '0.35rem 0.45rem' }}
                               title="Edit Batch"
                               onClick={() => {
-                                setSelectedBatchIndex(idx);
+                                setSelectedEditBatchIdx(idx);
                                 setCurrentBatch({
                                   purchaseRate: b.purchaseRate,
                                   purchaseDate: b.purchaseDate,
@@ -452,7 +460,7 @@ const Materials = () => {
                                   alert(`Cannot delete batch — ${alreadyUsed} ${selectedMat.unit} has already been distributed from this batch.`);
                                   return;
                                 }
-                                if (window.confirm(`Are you sure you want to delete Batch ${idx + 1}?`)) {
+                                if (window.confirm(`Are you sure you want to delete batch "${batchLabels[idx] || `Batch ${idx + 1}`}"?`)) {
                                   deleteBatchAction(selectedMat.id || selectedMat._id, idx);
                                 }
                               }}
@@ -515,12 +523,14 @@ const Materials = () => {
                       const materialBatchRows = [];
                       materials.forEach(mat => {
                         const batches = mat.batches || [];
+                        const labels = getBatchLabels(batches);
                         if (batches.length > 0) {
                           batches.forEach((b, idx) => {
+                            const bLabel = labels[idx] || `Batch ${idx + 1}`;
                             materialBatchRows.push({
                               id: `${mat.id || mat._id}-B${idx + 1}`,
                               rawName: mat.name,
-                              name: `${mat.name} (Batch ${idx + 1})`,
+                              name: `${mat.name} (${bLabel})`,
                               stock: b.quantityAvailable,
                               purchasedStock: b.quantityPurchased,
                               unit: mat.unit,
@@ -533,7 +543,7 @@ const Materials = () => {
                           materialBatchRows.push({
                             id: `${mat.id || mat._id}-B1`,
                             rawName: mat.name,
-                            name: `${mat.name} (Batch 1)`,
+                            name: mat.purchaseAmount ? `${mat.name} (₹${mat.purchaseAmount})` : mat.name,
                             stock: mat.stock || 0,
                             purchasedStock: mat.stock || 0,
                             unit: mat.unit,
@@ -557,11 +567,11 @@ const Materials = () => {
                         'Material Name': row.rawName,
                         'Batch Ref': row.name,
                         'Purchase Date': row.purchaseDate,
-                        'Purchase Rate (₹)': row.purchaseRate,
-                        'Quantity Purchased': row.purchasedStock,
-                        'Stock Available': row.stock,
+                        'Purchase Rate (Rs.)': row.purchaseRate,
+                        'Purchased Qty': row.purchasedStock,
+                        'Available Stock': row.stock,
                         'Unit': row.unit,
-                        'Total Value (Available) (₹)': row.totalValue
+                        'Current Stock Value (Rs.)': row.totalValue
                       }));
                       exportToExcel(exportData, 'Materials_Detailed_Stock_Report');
                     }}
@@ -609,12 +619,14 @@ const Materials = () => {
                     const materialBatchRows = [];
                     materials.forEach(mat => {
                       const batches = mat.batches || [];
+                      const labels = getBatchLabels(batches);
                       if (batches.length > 0) {
                         batches.forEach((b, idx) => {
+                          const bLabel = labels[idx] || `Batch ${idx + 1}`;
                           materialBatchRows.push({
                             id: `${mat.id || mat._id}-B${idx + 1}`,
                             materialId: mat.id || mat._id,
-                            name: `${mat.name} (Batch ${idx + 1})`,
+                            name: `${mat.name} (${bLabel})`,
                             rawName: mat.name,
                             stock: b.quantityAvailable,
                             purchasedStock: b.quantityPurchased,
@@ -629,7 +641,7 @@ const Materials = () => {
                         materialBatchRows.push({
                           id: `${mat.id || mat._id}-B1`,
                           materialId: mat.id || mat._id,
-                          name: `${mat.name} (Batch 1)`,
+                          name: mat.purchaseAmount ? `${mat.name} (₹${mat.purchaseAmount})` : mat.name,
                           rawName: mat.name,
                           stock: mat.stock || 0,
                           purchasedStock: mat.stock || 0,
@@ -757,15 +769,15 @@ const Materials = () => {
                   onClick={() => {
                     const exportData = filteredUsageLogs.map(log => ({
                       'Log ID': formatMaterialId(log.id || log._id),
-                      'Material': log.material,
-                      'Batch(es)': log.batchesConsumed || 'Batch 1',
-                      'Purchase Rate': log.purchaseRateInfo || 'N/A',
-                      'Purchase Cost (₹)': log.purchaseCost || 0,
-                      'Site / Project': log.project,
+                      'Material Name': log.material,
+                      'Batch(es)': log.batchesConsumed || '-',
+                      'Purchase Rate Info': log.purchaseRateInfo || 'N/A',
+                      'Purchase Cost (Rs.)': log.purchaseCost || 0,
+                      'Project / Site': log.project,
                       'Quantity Distributed': log.quantity,
                       'Unit': log.unit,
-                      'Distribution Rate (₹)': log.distributionRate,
-                      'Total Distributed Amount (₹)': Number(log.distributionRate || 0) * Number(log.quantity || 0),
+                      'Distribution Rate (Rs.)': log.distributionRate,
+                      'Total Distributed Amount (Rs.)': Number(log.distributionRate || 0) * Number(log.quantity || 0),
                       'Date of Distribution': log.date
                     }));
                     exportToExcel(exportData, 'Material_Usage_Logs');
@@ -791,6 +803,53 @@ const Materials = () => {
               </select>
             </div>
           </FilterModal>
+
+          {/* Material-wise Usage Breakdown Summary */}
+          {usageLogs.length > 0 && (() => {
+            const matSummary = {};
+            filteredUsageLogs.forEach(log => {
+              const matName = log.material || 'Unknown';
+              if (!matSummary[matName]) matSummary[matName] = { qty: 0, value: 0, unit: log.unit || '' };
+              matSummary[matName].qty   += Number(log.quantity || 0);
+              matSummary[matName].value += Number(log.quantity || 0) * Number(log.distributionRate || 0);
+            });
+            const grandTotal = Object.values(matSummary).reduce((s, v) => s + v.value, 0);
+            const rows = Object.entries(matSummary).sort((a, b) => b[1].value - a[1].value);
+            if (rows.length === 0) return null;
+            return (
+              <div style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem', backgroundColor: 'var(--color-bg-base)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>📊 Material-wise Distribution Summary</h4>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{filteredUsageLogs.length} log(s)</span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: '0.83rem', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'var(--color-bg-surface)' }}>
+                        <th style={{ padding: '0.4rem 0.75rem', textAlign: 'left', fontWeight: 700, borderBottom: '1px solid var(--border-color)' }}>Material</th>
+                        <th style={{ padding: '0.4rem 0.75rem', textAlign: 'right', fontWeight: 700, borderBottom: '1px solid var(--border-color)' }}>Total Qty Distributed</th>
+                        <th style={{ padding: '0.4rem 0.75rem', textAlign: 'right', fontWeight: 700, borderBottom: '1px solid var(--border-color)' }}>Total Distributed Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(([mat, data], idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: idx % 2 === 0 ? 'transparent' : 'var(--color-bg-surface)' }}>
+                          <td style={{ padding: '0.4rem 0.75rem', fontWeight: 600 }}>{mat}</td>
+                          <td style={{ padding: '0.4rem 0.75rem', textAlign: 'right', color: '#ef4444' }}>-{data.qty} {data.unit}</td>
+                          <td style={{ padding: '0.4rem 0.75rem', textAlign: 'right', fontWeight: 600, color: '#8b5cf6' }}>₹{data.value.toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ borderTop: '2px solid var(--color-primary)', backgroundColor: 'var(--color-primary-light, #f0f4ff)' }}>
+                        <td style={{ padding: '0.5rem 0.75rem', fontWeight: 800 }}>GRAND TOTAL</td>
+                        <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}></td>
+                        <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)' }}>₹{grandTotal.toLocaleString('en-IN')}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="table-container">
             <table>
@@ -1003,7 +1062,7 @@ const Materials = () => {
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Select Available Batch Rate to Auto-Fill</label>
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {activeBatches.map((b, idx) => {
-                          const isSelected = Number(currentUsage.distributionRate) === b.purchaseRate;
+                          const isSelected = selectedBatchIndex === idx;
                           return (
                             <button
                               key={idx}
@@ -1019,6 +1078,7 @@ const Materials = () => {
                                 fontWeight: isSelected ? '600' : 'normal'
                               }}
                               onClick={() => {
+                                setSelectedBatchIndex(idx);
                                 setCurrentUsage({
                                   ...currentUsage,
                                   distributionRate: b.purchaseRate,
@@ -1110,6 +1170,20 @@ const Materials = () => {
           </div>
         </div>
       )}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+        onConfirm={(mode) => {
+          if (deleteTarget) {
+            deleteMaterialAction(deleteTarget.id, mode);
+            setSelectedMaterialId(null);
+          }
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+        }}
+        entityType="Material"
+        entityName={deleteTarget?.name || ''}
+      />
     </div>
   );
 };

@@ -65,254 +65,94 @@ const getSummaryData = (data, fileName) => {
   const name = fileName.toLowerCase();
   const summary = [];
 
-  // Site Income Report
-  if (name.includes('site_income') || name.includes('income_report')) {
-    let totalIncome = 0;
-    const sites = {};
-    data.forEach(row => {
-      const amt = Number(String(row['Amount Received (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalIncome += amt;
-      const site = row['Site / Project'];
-      if (site) sites[site] = (sites[site] || 0) + amt;
-    });
-    summary.push(['Total Entries', data.length]);
-    summary.push(['Total Income Received', 'Rs. ' + totalIncome.toLocaleString('en-IN')]);
-    summary.push(['Unique Projects', Object.keys(sites).length]);
-    Object.entries(sites).sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([site, amt]) => {
-      summary.push([site, 'Rs. ' + amt.toLocaleString('en-IN')]);
-    });
-  }
-  // Labour Finance Summary
-  else if (name.includes('labour_finance')) {
-    let totalWage = 0, totalPaid = 0, totalPending = 0, cleared = 0;
-    data.forEach(row => {
-      totalWage    += Number(String(row['Total Wage Incurred (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPaid    += Number(String(row['Amount Paid (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPending += Number(String(row['Amount Pending (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      if (String(row['Status'] || '').toLowerCase() === 'clear') cleared++;
-    });
-    summary.push(['Total Workers', data.length]);
-    summary.push(['Cleared Workers', cleared]);
-    summary.push(['Pending Workers', data.length - cleared]);
-    summary.push(['Total Wage Incurred', 'Rs. ' + totalWage.toLocaleString('en-IN')]);
-    summary.push(['Total Paid', 'Rs. ' + totalPaid.toLocaleString('en-IN')]);
-    summary.push(['Total Pending', 'Rs. ' + totalPending.toLocaleString('en-IN')]);
-  }
-  // Material Finance Overview
-  else if (name.includes('material_finance')) {
-    let totalPurchaseCost = 0, totalDistValue = 0, totalProfit = 0;
-    const materialTotals = {};
-    data.forEach(row => {
-      const matName = String(row['Material Name'] || '');
-      const purchaseCost = Number(String(row['Total Purchase Cost (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const distValue = Number(String(row['Distributed Value (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const profit = Number(String(row['Profit / Difference (Rs.)'] || 0).replace(/[^\d.-]/g, '')) || 0;
-      totalPurchaseCost += purchaseCost;
-      totalDistValue += distValue;
-      totalProfit += profit;
-      if (matName) {
-        if (!materialTotals[matName]) materialTotals[matName] = { purchaseCost: 0, distValue: 0 };
-        materialTotals[matName].purchaseCost += purchaseCost;
-        materialTotals[matName].distValue += distValue;
-      }
-    });
-    summary.push(['Total Materials', Object.keys(materialTotals).length]);
-    summary.push(['Total Batches/Entries', data.length]);
-    summary.push(['Total Purchase Cost', 'Rs. ' + totalPurchaseCost.toLocaleString('en-IN')]);
-    summary.push(['Total Distributed Value', 'Rs. ' + totalDistValue.toLocaleString('en-IN')]);
-    summary.push(['Net Profit / Difference', 'Rs. ' + totalProfit.toLocaleString('en-IN')]);
-    Object.entries(materialTotals).forEach(([mat, vals]) => {
-      summary.push([mat + ' - Purchase Cost', 'Rs. ' + vals.purchaseCost.toLocaleString('en-IN')]);
-      summary.push([mat + ' - Distributed', 'Rs. ' + vals.distValue.toLocaleString('en-IN')]);
-    });
-  }
-  // Projects Report
-  else if (name.includes('projects_report')) {
-    let totalBudget = 0, totalCollected = 0, totalToReceive = 0, totalSpent = 0;
-    let activeCount = 0, completedCount = 0;
-    data.forEach(row => {
-      totalBudget    += Number(String(row['Total Budget (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalCollected += Number(String(row['Amount Collected (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalToReceive += Number(String(row['Amount to Receive (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalSpent     += Number(String(row['Amount Spent (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const status = String(row['Status'] || '').toLowerCase();
-      if (status === 'active') activeCount++;
-      if (status === 'completed') completedCount++;
-    });
-    summary.push(['Total Projects', data.length]);
-    summary.push(['Active Projects', activeCount]);
-    summary.push(['Completed Projects', completedCount]);
-    summary.push(['Total Budget', 'Rs. ' + totalBudget.toLocaleString('en-IN')]);
-    summary.push(['Total Collected', 'Rs. ' + totalCollected.toLocaleString('en-IN')]);
-    summary.push(['Total to Receive', 'Rs. ' + totalToReceive.toLocaleString('en-IN')]);
-    summary.push(['Total Spent', 'Rs. ' + totalSpent.toLocaleString('en-IN')]);
-  }
-  // Daily Attendance Logs
-  else if (name.includes('daily_attendance') || name.includes('attendance_log')) {
-    let totalDays = 0, totalWage = 0, totalPaid = 0, totalPending = 0;
-    const uniqueWorkers = new Set();
-    const sites = new Set();
-    data.forEach(row => {
-      const status = String(row['Attendance Status'] || '');
-      const workTime = String(row['Work Time'] || '');
-      if (status === 'Present') {
-        totalDays += workTime === 'Full Day' ? 1 : workTime === 'Half Day' ? 0.5 : workTime === 'Overtime' ? 1.5 : 0;
-      }
-      totalWage    += Number(String(row['Calculated Wage (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPaid    += Number(String(row['Paid (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPending += Number(String(row['Pending (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      if (row['Worker Name']) uniqueWorkers.add(row['Worker Name']);
-      if (row['Site / Project'] && row['Site / Project'] !== '-') sites.add(row['Site / Project']);
-    });
-    summary.push(['Total Records', data.length]);
-    summary.push(['Unique Workers', uniqueWorkers.size]);
-    if (sites.size > 0 && sites.size <= 3) summary.push(['Site(s)', Array.from(sites).join(', ')]);
-    summary.push(['Total Days Worked', totalDays]);
-    summary.push(['Total Wage Incurred', 'Rs. ' + totalWage.toLocaleString('en-IN')]);
-    summary.push(['Total Paid', 'Rs. ' + totalPaid.toLocaleString('en-IN')]);
-    summary.push(['Total Pending', 'Rs. ' + totalPending.toLocaleString('en-IN')]);
-  }
-  // Monthly Labour Summary
-  else if (name.includes('monthly_summary') || (name.includes('labour') && name.includes('summary'))) {
-    let periodLabel = '';
-    const rangeMatch = fileName.match(/(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/);
-    const monthMatch = fileName.match(/(\d{4}-\d{2})(?!-\d{2})/);
-    if (rangeMatch) {
-      periodLabel = rangeMatch[1] + '  to  ' + rangeMatch[2];
-    } else if (monthMatch) {
-      const parts = monthMatch[1].split('-');
-      periodLabel = new Date(Number(parts[0]), Number(parts[1]) - 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
-    }
-    let totalWage = 0, totalPaid = 0, totalPending = 0;
-    const roles = {};
-    data.forEach(row => {
-      totalWage    += Number(String(row['Total Earned (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPaid    += Number(String(row['Paid (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPending += Number(String(row['Pending (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const role = String(row['Role'] || '').trim();
-      if (role && role !== '-') roles[role] = (roles[role] || 0) + 1;
-    });
-    if (periodLabel) summary.push(['Report Period', periodLabel]);
-    summary.push(['Total Workers', data.length]);
-    summary.push(['Total Wage Incurred', 'Rs. ' + totalWage.toLocaleString('en-IN')]);
-    summary.push(['Total Paid', 'Rs. ' + totalPaid.toLocaleString('en-IN')]);
-    summary.push(['Total Pending', 'Rs. ' + totalPending.toLocaleString('en-IN')]);
-    Object.keys(roles).forEach(r => summary.push([r + 's', roles[r]]));
-  }
-  // Workers Master Report
-  else if (name.includes('workers_master') || name.includes('labour_report')) {
+  if (name.includes('worker') || name.includes('labour') || name.includes('attendance')) {
+    let total = data.length;
     let active = 0;
     const roles = {};
-    let totalDailyWage = 0;
+
     data.forEach(row => {
-      if (String(row['Status'] || '').toLowerCase() === 'active') active++;
-      const role = String(row['Role'] || '').trim();
-      if (role) roles[role] = (roles[role] || 0) + 1;
-      totalDailyWage += Number(String(row['Daily Rate (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-    });
-    summary.push(['Total Labours', data.length]);
-    summary.push(['Active Labours', active]);
-    summary.push(['Inactive Labours', data.length - active]);
-    if (totalDailyWage > 0 && data.length > 0) summary.push(['Avg Daily Rate', 'Rs. ' + Math.round(totalDailyWage / data.length).toLocaleString('en-IN')]);
-    Object.keys(roles).forEach(r => summary.push([r + 's', roles[r]]));
-  }
-  // Project Labour Cost filter
-  else if (name.includes('project_labour')) {
-    let totalWage = 0, totalPaid = 0, totalPending = 0, totalDays = 0;
-    const uniqueWorkers = new Set();
-    let siteName = '';
-    data.forEach(row => {
-      totalWage    += Number(String(row['Wage Incurred (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPaid    += Number(String(row['Paid (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalPending += Number(String(row['Pending (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const wt = String(row['Work Time'] || '');
-      totalDays += wt === 'Full Day' ? 1 : wt === 'Half Day' ? 0.5 : wt === 'Overtime' ? 1.5 : 0;
-      if (row['Worker Name']) uniqueWorkers.add(row['Worker Name']);
-      if (row['Site / Project'] && !siteName) siteName = row['Site / Project'];
-    });
-    if (siteName) summary.push(['Site / Project', siteName]);
-    summary.push(['Total Entries', data.length]);
-    summary.push(['Unique Workers', uniqueWorkers.size]);
-    summary.push(['Total Days Logged', totalDays]);
-    summary.push(['Total Wage Incurred', 'Rs. ' + totalWage.toLocaleString('en-IN')]);
-    summary.push(['Total Paid', 'Rs. ' + totalPaid.toLocaleString('en-IN')]);
-    summary.push(['Total Pending', 'Rs. ' + totalPending.toLocaleString('en-IN')]);
-  }
-  // Material Stock / Detailed
-  else if (name.includes('material') && (name.includes('stock') || name.includes('detailed'))) {
-    let totalAvailable = 0, totalPurchased = 0, totalPurchaseValue = 0, totalCurrentValue = 0;
-    let lowStockCount = 0, outOfStockCount = 0;
-    const materialBatchCounts = {};
-    const materialAvailable = {};
-    data.forEach(row => {
-      const available = Number(String(row['Available Stock'] || row['Stock Available'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const purchased = Number(String(row['Purchased Qty'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const rate = Number(String(row['Purchase Rate (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      const matName = String(row['Material Name'] || '').split('(')[0].trim();
-      totalAvailable += available;
-      totalPurchased += purchased;
-      totalPurchaseValue += purchased * rate;
-      totalCurrentValue  += available * rate;
-      if (available <= 0) outOfStockCount++;
-      else if (available < 50) lowStockCount++;
-      if (matName) {
-        materialBatchCounts[matName] = (materialBatchCounts[matName] || 0) + 1;
-        materialAvailable[matName] = (materialAvailable[matName] || 0) + available;
+      const statusVal = row['Status'] || row['status'] || '';
+      if (String(statusVal).toLowerCase() === 'active') active++;
+
+      const roleVal = row['Role'] || row['role'] || row['Role At Time'] || row['Role / Type'] || '';
+      if (roleVal) {
+        const normalizedRole = String(roleVal).trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+        roles[normalizedRole] = (roles[normalizedRole] || 0) + 1;
       }
     });
-    summary.push(['Total Material Types', Object.keys(materialBatchCounts).length]);
-    summary.push(['Total Batches', data.length]);
-    summary.push(['Total Purchased Qty', totalPurchased]);
-    summary.push(['Total Available Stock', totalAvailable]);
-    summary.push(['Total Purchase Value', 'Rs. ' + totalPurchaseValue.toLocaleString('en-IN')]);
-    summary.push(['Current Stock Value', 'Rs. ' + totalCurrentValue.toLocaleString('en-IN')]);
-    if (lowStockCount > 0) summary.push(['Low Stock Batches', lowStockCount]);
-    if (outOfStockCount > 0) summary.push(['Out of Stock Batches', outOfStockCount]);
-    Object.entries(materialAvailable).forEach(function(e) {
-      summary.push([e[0] + ' - Available', e[1]]);
+
+    summary.push(['Total Labours', total]);
+    if (active > 0) summary.push(['Active Labours', active]);
+    
+    Object.keys(roles).forEach(role => {
+      summary.push([`${role}s`, roles[role]]);
     });
-    Object.entries(materialBatchCounts).filter(function(e) { return e[1] > 1; })
-      .forEach(function(e) { summary.push([e[0] + ' - Batches', e[1]]); });
-  }
-  // Material Usage Logs
-  else if (name.includes('material') && name.includes('usage')) {
-    let totalQty = 0, totalValue = 0;
-    const sites = new Set(), materials = {};
+  } 
+  else if (name.includes('material')) {
+    let totalStock = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    let totalValue = 0;
+
     data.forEach(row => {
-      totalQty   += Number(String(row['Quantity Distributed'] || row['Quantity Used'] || 0).replace(/[^\d.]/g, '')) || 0;
-      totalValue += Number(String(row['Total Distributed Amount (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      if (row['Project / Site'] && row['Project / Site'] !== '-') sites.add(row['Project / Site']);
-      const mat = row['Material Name'];
-      if (mat) materials[mat] = (materials[mat] || 0) + (Number(String(row['Quantity Distributed'] || 0).replace(/[^\d.]/g, '')) || 0);
+      const stock = Number(String(row['Stock Available'] || row['stock'] || 0).replace(/[^\d.]/g, ''));
+      const rate = Number(String(row['Purchase Rate (₹)'] || row['purchaseRate'] || 0).replace(/[^\d.]/g, ''));
+      
+      if (stock <= 0) outOfStockCount++;
+      else if (stock < 50) lowStockCount++;
+
+      totalStock += stock;
+      totalValue += (stock * rate);
     });
-    summary.push(['Total Entries', data.length]);
-    summary.push(['Unique Materials', Object.keys(materials).length]);
-    summary.push(['Unique Sites', sites.size]);
-    summary.push(['Total Qty Distributed', totalQty]);
-    if (totalValue > 0) summary.push(['Total Distribution Value', 'Rs. ' + totalValue.toLocaleString('en-IN')]);
-    Object.entries(materials).sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([mat, qty]) => {
-      summary.push([mat + ' - Qty Used', qty]);
-    });
+
+    summary.push(['Total Materials Listed', data.length]);
+    summary.push(['Total Available Stock', totalStock]);
+    if (lowStockCount > 0) summary.push(['Low Stock Items', lowStockCount]);
+    if (outOfStockCount > 0) summary.push(['Out of Stock Items', outOfStockCount]);
   }
-  // Finance / Income / Expense (generic)
+  else if (name.includes('project') || name.includes('site')) {
+    let totalBudget = 0;
+    let activeProjects = 0;
+    let completedProjects = 0;
+
+    data.forEach(row => {
+      const budget = Number(String(row['Budget (₹)'] || row['budget'] || 0).replace(/[^\d.]/g, ''));
+      const status = String(row['Status'] || row['status'] || '').toLowerCase();
+
+      if (status === 'active') activeProjects++;
+      if (status === 'completed') completedProjects++;
+      totalBudget += budget;
+    });
+
+    summary.push(['Total Projects', data.length]);
+    summary.push(['Active Projects', activeProjects]);
+    summary.push(['Completed Projects', completedProjects]);
+    if (totalBudget > 0) summary.push(['Total Combined Budget', `₹${totalBudget.toLocaleString('en-IN')}`]);
+  }
   else if (name.includes('finance') || name.includes('income') || name.includes('expense') || name.includes('spent')) {
-    let totalInflow = 0, totalOutflow = 0;
+    let totalInflow = 0;
+    let totalOutflow = 0;
+
     data.forEach(row => {
-      const amount = Number(
-        String(row['Amount Received (Rs.)'] || row['Total Amount (Rs.)'] || row['Total Purchase Cost (Rs.)'] || row['amount'] || 0).replace(/[^\d.]/g, '')
-      ) || 0;
-      if (name.includes('income')) totalInflow += amount;
-      else totalOutflow += amount;
+      const amount = Number(String(row['Amount Received (₹)'] || row['Total Amount (₹)'] || row['purchaseValue'] || row['amount'] || row['cost'] || row['Total Distributed Amount (₹)'] || 0).replace(/[^\d.]/g, ''));
+
+      if (name.includes('income')) {
+        totalInflow += amount;
+      } else {
+        totalOutflow += amount;
+      }
     });
-    if (totalInflow > 0) summary.push(['Total Income', 'Rs. ' + totalInflow.toLocaleString('en-IN')]);
-    if (totalOutflow > 0) summary.push(['Total Expenses', 'Rs. ' + totalOutflow.toLocaleString('en-IN')]);
+
+    if (totalInflow > 0) summary.push(['Total Income', `₹${totalInflow.toLocaleString('en-IN')}`]);
+    if (totalOutflow > 0) summary.push(['Total Expenses / Spent', `₹${totalOutflow.toLocaleString('en-IN')}`]);
     if (totalInflow > 0 && totalOutflow > 0) {
-      summary.push(['Net Balance', 'Rs. ' + (totalInflow - totalOutflow).toLocaleString('en-IN')]);
+      summary.push(['Net Balance', `₹${(totalInflow - totalOutflow).toLocaleString('en-IN')}`]);
     }
   }
 
   return summary;
 };
+
 // Inject CSS styles for the export modal
 const injectModalStyles = () => {
   if (document.getElementById('export-modal-styles')) return;
@@ -1010,3 +850,4 @@ export const exportToExcel = (data, fileName = 'Export_Report', columnMap = null
     await generatePdfReport(data, fileName, keys, headers, logoBase64);
   });
 };
+

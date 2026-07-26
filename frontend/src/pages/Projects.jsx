@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw, Briefcase, CheckCircle, IndianRupee } from 'lucide-react';
+import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw, Briefcase, CheckCircle, IndianRupee, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
 import { exportToExcel } from '../utils/exportToExcel';
 import FilterModal from '../components/FilterModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 const formatRupee = (amount) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -13,7 +16,8 @@ const formatRupee = (amount) => {
 
 const Projects = () => {
   const navigate = useNavigate();
-  const { projects, addProjectAction, updateProjectAction, deleteProjectAction, loading } = useCMS();
+  const { projects, finances, addProjectAction, updateProjectAction, deleteProjectAction, loading } = useCMS();
+  const incomes = (finances && finances.incomes) ? finances.incomes : [];
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ name: '', client: '', budget: '', location: '', startDate: '', endDate: '' });
 
@@ -22,6 +26,10 @@ const Projects = () => {
   const [projectSearch, setProjectSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showFilterModal, setShowFilterModal] = useState(false);
+
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
   const handleAddProject = (e) => {
     e.preventDefault();
@@ -52,6 +60,233 @@ const Projects = () => {
     updateProjectAction(currentProject.id, updatedProj);
     setShowEditModal(false);
   };
+
+  // ── Project Bill PDF Generator ──────────────────────────────────────────────
+  const generateProjectBillPdf = (project) => {
+    const projectIncomes = incomes
+      .filter(i => i.project === project.name)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const totalBudget    = Number(project.budget || 0);
+    const totalCollected = projectIncomes.reduce((s, i) => s + Number(i.amount || 0), 0);
+    const totalRemaining = Math.max(0, totalBudget - totalCollected);
+
+    const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // ── Brand colours ──
+    const orange   = [245, 130, 32];
+    const darkBlue = [30, 45, 80];
+    const dark     = [25, 25, 35];
+    const white    = [255, 255, 255];
+    const lightBg  = [248, 250, 253];
+
+    // ── Header Banner ──
+    doc.setFillColor(...orange);
+    doc.rect(0, 0, pageW, 36, 'F');
+
+    // Left accent stripe
+    doc.setFillColor(220, 100, 10);
+    doc.rect(0, 0, 5, 36, 'F');
+
+    // Company Name
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.setTextColor(...white);
+    doc.text('SHREERAM CONSTRUCTION', 12, 13);
+
+    // Tagline / type
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 235, 200);
+    doc.text('Civil Construction & Project Management', 12, 19);
+
+    // Contact info — right side
+    doc.setFontSize(7);
+    doc.setTextColor(...white);
+    const rightX = pageW - 14;
+    doc.text('Mob: +91 7720900336', rightX, 10, { align: 'right' });
+    doc.text('GST: 27CZPPG0505C1ZR',  rightX, 15, { align: 'right' });
+    doc.text('Email: shreeramconstruction1111@gmail.com', rightX, 20, { align: 'right' });
+    doc.text('A/P SHINGAVE (PARGAON), AMBEGAON,', rightX, 25, { align: 'right' });
+    doc.text('PUNE - 412406', rightX, 30, { align: 'right' });
+
+    // ── Divider line below header ──
+    doc.setDrawColor(...orange);
+    doc.setLineWidth(0.6);
+    doc.line(0, 36, pageW, 36);
+
+    // ── Document Title ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...dark);
+    doc.text('SITE INCOME BILL', pageW / 2, 46, { align: 'center' });
+
+    // Underline the title
+    doc.setDrawColor(...orange);
+    doc.setLineWidth(0.5);
+    doc.line(pageW / 2 - 32, 48, pageW / 2 + 32, 48);
+
+    // ── Project Info Box ──
+    doc.setFillColor(...lightBg);
+    doc.roundedRect(12, 52, pageW - 24, 36, 3, 3, 'F');
+    doc.setDrawColor(220, 225, 235);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(12, 52, pageW - 24, 36, 3, 3, 'S');
+
+    const col1 = 18, col2 = pageW / 2 + 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...dark);
+
+    // Left column
+    doc.text('Project / Site:', col1, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.text(project.name, col1 + 30, 60);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Client:', col1, 67);
+    doc.setFont('helvetica', 'normal');
+    doc.text(project.client || '-', col1 + 30, 67);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Location:', col1, 74);
+    doc.setFont('helvetica', 'normal');
+    doc.text(project.location || '-', col1 + 30, 74);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Status:', col1, 81);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(project.status === 'Active' ? 16 : 100, project.status === 'Active' ? 185 : 100, project.status === 'Active' ? 129 : 100);
+    doc.text(project.status || 'Active', col1 + 30, 81);
+    doc.setTextColor(...dark);
+
+    // Right column
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bill Date:', col2, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 60);
+
+    if (project.startDate) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Start Date:', col2, 67);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date(project.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 67);
+    }
+    if (project.endDate) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('End Date:', col2, 74);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date(project.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 74);
+    }
+
+    // ── Payments Table ──
+    let runningCollected = 0;
+    const tableBody = projectIncomes.map((inc, idx) => {
+      runningCollected += Number(inc.amount || 0);
+      const remaining = Math.max(0, totalBudget - runningCollected);
+      return [
+        idx + 1,
+        new Date(inc.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        inc.paymentType || '-',
+        'Rs. ' + totalBudget.toLocaleString('en-IN'),
+        'Rs. ' + Number(inc.amount || 0).toLocaleString('en-IN'),
+        'Rs. ' + remaining.toLocaleString('en-IN')
+      ];
+    });
+
+    if (tableBody.length === 0) {
+      tableBody.push(['-', 'No payments recorded yet', '-',
+        'Rs. ' + totalBudget.toLocaleString('en-IN'), 'Rs. 0',
+        'Rs. ' + totalBudget.toLocaleString('en-IN')]);
+    }
+
+    autoTable(doc, {
+      startY: 94,
+      head: [['#', 'Date', 'Payment Type', 'Total Budget', 'Amount Received', 'Remaining Amount']],
+      body: tableBody,
+      theme: 'grid',
+      headStyles: {
+        fillColor: darkBlue,
+        textColor: white,
+        fontStyle: 'bold',
+        fontSize: 8.5,
+        halign: 'center'
+      },
+      bodyStyles: { fontSize: 8, textColor: dark },
+      alternateRowStyles: { fillColor: [245, 248, 255] },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 28 },
+        3: { halign: 'right' },
+        4: { halign: 'right', textColor: [16, 185, 129] },
+        5: { halign: 'right', textColor: totalRemaining > 0 ? [239, 68, 68] : [16, 185, 129] }
+      },
+      margin: { left: 12, right: 12 }
+    });
+
+    // ── Summary Box ──
+    const finalY = doc.lastAutoTable.finalY + 8;
+    const summaryH = 42;
+
+    // Orange background summary
+    doc.setFillColor(...orange);
+    doc.roundedRect(12, finalY, pageW - 24, summaryH, 3, 3, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...white);
+    doc.text('FINANCIAL SUMMARY', 18, finalY + 9);
+
+    // Summary grid (2x2)
+    const summaryItems = [
+      ['Total Budget',    'Rs. ' + totalBudget.toLocaleString('en-IN'),    col1,   finalY + 20],
+      ['Total Collected', 'Rs. ' + totalCollected.toLocaleString('en-IN'), col1,   finalY + 32],
+      ['Remaining',       'Rs. ' + totalRemaining.toLocaleString('en-IN'), col2,   finalY + 20],
+      ['No. of Payments', String(projectIncomes.length),                    col2,   finalY + 32]
+    ];
+
+    doc.setFontSize(8.5);
+    summaryItems.forEach(([label, val, x, y]) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 230, 180);
+      doc.text(label + ':', x, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...white);
+      doc.text(val, x + 35, y);
+    });
+
+    // ── Signature / Declaration ──
+    const sigY = finalY + summaryH + 14;
+    if (sigY + 28 < pageH - 16) {
+      doc.setDrawColor(220, 225, 235);
+      doc.setLineWidth(0.3);
+      doc.line(12, sigY, pageW - 12, sigY);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 100, 120);
+      doc.text('This is a computer-generated bill. No signature required.', pageW / 2, sigY + 7, { align: 'center' });
+      // Signature line
+      doc.setDrawColor(100);
+      doc.setLineWidth(0.3);
+      doc.line(pageW - 60, sigY + 22, pageW - 14, sigY + 22);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Authorised Signatory', pageW - 37, sigY + 27, { align: 'center' });
+    }
+
+    // ── Footer ──
+    doc.setFillColor(...orange);
+    doc.rect(0, pageH - 12, pageW, 12, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...white);
+    doc.text('Shreeram Construction | Mob: +91 7720900336 | shreeramconstruction1111@gmail.com | GST: 27CZPPG0505C1ZR', pageW / 2, pageH - 5, { align: 'center' });
+
+    doc.save(`Site_Bill_${project.name.replace(/\s+/g, '_')}.pdf`);
+  };
+  // ────────────────────────────────────────────────────────────────────────────
 
   if (loading) {
     return <SkeletonLoader type="table" rows={6} />;
@@ -163,18 +398,22 @@ const Projects = () => {
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                 onClick={() => {
-                  const exportData = filteredProjects.map(p => ({
-                    'Project ID': p.id || p._id,
-                    'Project Name': p.name,
-                    'Client Name': p.client,
-                    'Location': p.location || '-',
-                    'Total Budget (₹)': p.budget,
-                    'Amount Collected (₹)': p.collected || 0,
-                    'Amount Spent (₹)': p.spent || 0,
-                    'Status': p.status || 'Active',
-                    'Start Date': p.startDate || '-',
-                    'End Date': p.endDate || '-'
-                  }));
+                  const exportData = filteredProjects.map(p => {
+                    const toRec = Math.max(0, (p.budget || 0) - (p.collected || 0));
+                    return {
+                      'Project ID': p.id || p._id,
+                      'Project Name': p.name,
+                      'Client Name': p.client,
+                      'Location': p.location || '-',
+                      'Status': p.status || 'Active',
+                      'Start Date': p.startDate || '-',
+                      'End Date': p.endDate || '-',
+                      'Total Budget (Rs.)': p.budget || 0,
+                      'Amount Collected (Rs.)': p.collected || 0,
+                      'Amount to Receive (Rs.)': toRec,
+                      'Amount Spent (Rs.)': p.spent || 0
+                    };
+                  });
                   exportToExcel(exportData, 'Projects_Report');
                 }}
               >
@@ -216,13 +455,21 @@ const Projects = () => {
                         {project.status}
                       </span>
                     </td>
-                    <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <button 
                         className="btn btn-secondary" 
                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => navigate(`/projects/${project.id || project._id}`)}
                       >
                         View
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        title="Download Income Bill PDF"
+                        onClick={() => generateProjectBillPdf(project)}
+                      >
+                        <FileText size={13} /> Bill
                       </button>
                       <button 
                         className="btn btn-secondary" 
@@ -249,9 +496,8 @@ const Projects = () => {
                         style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
                         title="Delete Project"
                         onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete "${project.name}"? This will delete all logs and finances for this project.`)) {
-                            deleteProjectAction(project.id || project._id);
-                          }
+                          setDeleteTarget({ id: project.id || project._id, name: project.name });
+                          setShowDeleteModal(true);
                         }}
                       >
                         <Trash2 size={14} />
@@ -446,6 +692,19 @@ const Projects = () => {
           </div>
         </div>
       )}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+        onConfirm={(mode) => {
+          if (deleteTarget) {
+            deleteProjectAction(deleteTarget.id, mode);
+          }
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+        }}
+        entityType="Project"
+        entityName={deleteTarget?.name || ''}
+      />
     </div>
   );
 };

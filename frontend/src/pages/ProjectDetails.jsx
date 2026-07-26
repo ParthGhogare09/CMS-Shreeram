@@ -331,11 +331,12 @@ const ProjectDetails = () => {
                       const pending = log.cost - paid;
                       return {
                         'Date': formatDate(log.date),
+                        'Site / Project': project.name,
                         'Worker Name': log.name,
                         'Time Worked': `${log.days || 1} Days`,
-                        'Wage Incurred (₹)': log.cost,
-                        'Paid (₹)': paid,
-                        'Pending (₹)': pending,
+                        'Wage Incurred (Rs.)': log.cost,
+                        'Paid (Rs.)': paid,
+                        'Pending (Rs.)': pending,
                         'Status': pending <= 0 ? 'Paid' : 'Pending'
                       };
                     });
@@ -363,6 +364,25 @@ const ProjectDetails = () => {
               </select>
             </div>
           </FilterModal>
+
+          {/* Labour Summary Mini Table */}
+          {filteredLaborLogs.length > 0 && (() => {
+            const totalWage     = filteredLaborLogs.reduce((s, l) => s + (l.cost || 0), 0);
+            const totalPaid     = filteredLaborLogs.reduce((s, l) => s + (l.amountPaid ?? l.cost), 0);
+            const totalPending  = totalWage - totalPaid;
+            const uniqueWorkers = new Set(filteredLaborLogs.map(l => l.name)).size;
+            const wDays         = new Set(filteredLaborLogs.map(l => l.date)).size;
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem', padding: '1rem', backgroundColor: 'var(--color-bg-base)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                {[['Unique Workers', uniqueWorkers, '#6366f1'], ['Working Days', wDays, '#8b5cf6'], ['Total Wage', '₹' + totalWage.toLocaleString('en-IN'), '#f59e0b'], ['Total Paid', '₹' + totalPaid.toLocaleString('en-IN'), '#10b981'], ['Total Pending', '₹' + totalPending.toLocaleString('en-IN'), '#ef4444']].map(([label, val, color]) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '0.6rem 0.5rem', backgroundColor: 'var(--color-bg-surface)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '4px' }}>{label}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           <div className="table-container">
             <table>
               <thead>

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter, RotateCcw } from 'lucide-react';
+import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter, RotateCcw, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useCMS } from '../context/CMSContext';
 import { formatDate } from '../utils';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -49,11 +51,166 @@ const Finance = () => {
     setNewIncome({ project: '', amount: '', paymentType: 'Bank Transfer', date: new Date().toISOString().split('T')[0] });
   };
 
+  // Bill PDF generator for a specific project
+  const generateBillPdf = (projectName) => {
+    const projectIncomes = incomes
+      .filter(i => i.project === projectName)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const proj = projects.find(p => p.name === projectName);
+    const totalBudget = proj ? (proj.budget || 0) : 0;
+    const totalCollected = projectIncomes.reduce((s, i) => s + Number(i.amount || 0), 0);
+    const amountToReceive = Math.max(0, totalBudget - totalCollected);
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const orange    = [245, 130, 32];
+    const darkBlue  = [30, 45, 80];
+    const darkColor = [25, 25, 35];
+    const white     = [255, 255, 255];
+    const lightBg   = [248, 250, 253];
+
+    // ── Header Banner ──
+    doc.setFillColor(...orange);
+    doc.rect(0, 0, pageW, 36, 'F');
+    doc.setFillColor(220, 100, 10);
+    doc.rect(0, 0, 5, 36, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.setTextColor(...white);
+    doc.text('SHREERAM CONSTRUCTION', 12, 13);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 235, 200);
+    doc.text('Civil Construction & Project Management', 12, 19);
+
+    const rightX = pageW - 14;
+    doc.setFontSize(7);
+    doc.setTextColor(...white);
+    doc.text('Mob: +91 7720900336', rightX, 10, { align: 'right' });
+    doc.text('GST: 27CZPPG0505C1ZR', rightX, 15, { align: 'right' });
+    doc.text('Email: shreeramconstruction1111@gmail.com', rightX, 20, { align: 'right' });
+    doc.text('A/P SHINGAVE (PARGAON), AMBEGAON,', rightX, 25, { align: 'right' });
+    doc.text('PUNE - 412406', rightX, 30, { align: 'right' });
+
+    doc.setDrawColor(...orange);
+    doc.setLineWidth(0.6);
+    doc.line(0, 36, pageW, 36);
+
+    // ── Document Title ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...darkColor);
+    doc.text('INCOME RECEIPT', pageW / 2, 46, { align: 'center' });
+    doc.setDrawColor(...orange);
+    doc.setLineWidth(0.5);
+    doc.line(pageW / 2 - 30, 48, pageW / 2 + 30, 48);
+
+    // ── Project Info Box ──
+    doc.setFillColor(...lightBg);
+    doc.roundedRect(12, 52, pageW - 24, 36, 3, 3, 'F');
+    doc.setDrawColor(220, 225, 235);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(12, 52, pageW - 24, 36, 3, 3, 'S');
+
+    const col1 = 18, col2 = pageW / 2 + 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...darkColor);
+    doc.text('Project / Site:', col1, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.text(projectName, col1 + 30, 60);
+    if (proj) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Client:', col1, 67);
+      doc.setFont('helvetica', 'normal');
+      doc.text(proj.client || '-', col1 + 30, 67);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Location:', col1, 74);
+      doc.setFont('helvetica', 'normal');
+      doc.text(proj.location || '-', col1 + 30, 74);
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text('Generated:', col2, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Status:', col2, 67);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(amountToReceive <= 0 ? 16 : 239, amountToReceive <= 0 ? 185 : 68, amountToReceive <= 0 ? 129 : 68);
+    doc.text(amountToReceive <= 0 ? 'FULLY COLLECTED' : 'PARTIALLY COLLECTED', col2 + 25, 67);
+    doc.setTextColor(...darkColor);
+
+
+    // Payments Table
+    let runningBalance = totalBudget;
+    const tableBody = projectIncomes.map((inc, idx) => {
+      runningBalance -= Number(inc.amount || 0);
+      return [
+        idx + 1,
+        new Date(inc.date).toLocaleDateString('en-IN'),
+        inc.paymentType || '-',
+        'Rs. ' + Number(inc.amount || 0).toLocaleString('en-IN'),
+        'Rs. ' + Math.max(0, runningBalance).toLocaleString('en-IN')
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 94,
+      head: [['#', 'Date', 'Payment Type', 'Amount Received', 'Balance Remaining']],
+      body: tableBody,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 45, 80], textColor: 255, fontStyle: 'bold', fontSize: 9, halign: 'center' },
+      bodyStyles: { fontSize: 8.5, textColor: darkColor },
+      alternateRowStyles: { fillColor: [245, 248, 255] },
+      columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 3: { halign: 'right', textColor: [16, 185, 129] }, 4: { halign: 'right' } },
+      margin: { left: 12, right: 12 }
+    });
+
+    // Summary box
+    const finalY = doc.lastAutoTable.finalY + 8;
+    const summaryH = 42;
+    doc.setFillColor(...orange);
+    doc.roundedRect(12, finalY, pageW - 24, summaryH, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text('FINANCIAL SUMMARY', 18, finalY + 9);
+    const col1x = 18, col2x = pageW / 2 + 4;
+    doc.setFontSize(9);
+    const summaryRows = [
+      ['Total Budget',    'Rs. ' + totalBudget.toLocaleString('en-IN'),    col1x, finalY + 20],
+      ['Total Collected', 'Rs. ' + totalCollected.toLocaleString('en-IN'), col1x, finalY + 32],
+      ['Remaining',       'Rs. ' + amountToReceive.toLocaleString('en-IN'), col2x, finalY + 20],
+      ['No. of Payments', String(projectIncomes.length),                    col2x, finalY + 32]
+    ];
+    summaryRows.forEach(([label, val, x, y]) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 230, 180);
+      doc.text(label + ':', x, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text(val, x + 35, y);
+    });
+
+    // Footer
+    const pgH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(...orange);
+    doc.rect(0, pgH - 12, pageW, 12, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Shreeram Construction | Mob: +91 7720900336 | shreeramconstruction1111@gmail.com | GST: 27CZPPG0505C1ZR', pageW / 2, pgH - 5, { align: 'center' });
+
+    doc.save(`Income_Bill_${projectName.replace(/\s+/g, '_')}.pdf`);
+  };
+
   if (loading) {
     return <SkeletonLoader type="table" rows={7} />;
   }
 
-  const { totalBudget = 0, totalRevenue = 0, totalLaborPending = 0, totalLaborPaid = 0, totalMaterialSpent = 0 } = stats;
+  const { totalBudget = 0, totalRevenue = 0, totalLaborPending = 0, totalLaborPaid = 0, totalMaterialSpent = 0, activeProjects = 0, totalProjects = 0 } = stats;
 
   const filteredIncomes = incomes.filter(inc => {
     const matchesSearch = inc.project.toLowerCase().includes(incomeSearch.toLowerCase());
@@ -107,6 +264,13 @@ const Finance = () => {
             <div className="value text-danger">{formatRupee(totalLaborPending)}</div>
           </div>
         </div>
+        <div className="card stat-card" style={{ backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
+          <div className="stat-content">
+            <h3>Active Sites</h3>
+            <div className="value text-success">{activeProjects || projects.filter(p => p.status === 'Active').length}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>of {totalProjects || projects.length} total</div>
+          </div>
+        </div>
       </div>
 
       {/* SITE FINANCE TABLE */}
@@ -145,11 +309,18 @@ const Finance = () => {
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                 onClick={() => {
+                  // Group incomes by project
+                  const projectMap = {};
+                  filteredIncomes.forEach(inc => {
+                    if (!projectMap[inc.project]) projectMap[inc.project] = { totalCollected: 0, count: 0 };
+                    projectMap[inc.project].totalCollected += Number(inc.amount || 0);
+                    projectMap[inc.project].count++;
+                  });
                   const exportData = filteredIncomes.map(inc => ({
                     'Date': formatDate(inc.date),
                     'Site / Project': inc.project,
                     'Payment Type': inc.paymentType,
-                    'Amount Received (₹)': inc.amount
+                    'Amount Received (Rs.)': Number(inc.amount || 0)
                   }));
                   exportToExcel(exportData, 'Site_Income_Report');
                 }}
@@ -207,7 +378,15 @@ const Finance = () => {
                       <ArrowUpRight size={16} /> {formatRupee(inc.amount)}
                     </div>
                   </td>
-                  <td data-label="Actions">
+                  <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      title="Download Bill PDF"
+                      onClick={() => generateBillPdf(inc.project)}
+                    >
+                      <FileText size={13} /> Bill
+                    </button>
                     <button 
                       className="btn btn-secondary text-danger" 
                       style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
@@ -250,10 +429,10 @@ const Finance = () => {
               onClick={() => {
                 const exportData = filteredLabourStats.map(w => ({
                   'Worker Name': w.name,
-                  'Total Wage Incurred (₹)': w.incurred,
-                  'Amount Paid (₹)': w.paid,
-                  'Amount Pending (₹)': w.pending,
-                  'Status': w.pending > 0 ? 'Pending' : 'Clear'
+                  'Total Wage Incurred (Rs.)': Number(w.incurred || 0),
+                  'Amount Paid (Rs.)': Number(w.paid || 0),
+                  'Amount Pending (Rs.)': Number(w.pending || 0),
+                  'Status': (w.pending || 0) > 0 ? 'Pending' : 'Clear'
                 }));
                 exportToExcel(exportData, 'Labour_Finance_Summary');
               }}
@@ -321,11 +500,12 @@ const Finance = () => {
                 const exportData = filteredMaterialStats.map(m => ({
                   'Material Name': m.name,
                   'Purchase Date': m.purchaseDate === 'Historic' ? 'Historic' : formatDate(m.purchaseDate),
-                  'Total Purchase Cost (₹)': m.purchaseValue,
-                  'Purchased Qty': `${m.purchasedQty} ${m.unit}`,
-                  'Distributed Value (₹)': m.distValue,
-                  'Distributed Qty': `${m.distQty} ${m.unit}`,
-                  'Profit / Difference (₹)': m.profit
+                  'Purchased Qty': Number(m.purchasedQty || 0),
+                  'Unit': m.unit || '-',
+                  'Total Purchase Cost (Rs.)': Number(m.purchaseValue || 0),
+                  'Distributed Qty': Number(m.distQty || 0),
+                  'Distributed Value (Rs.)': Number(m.distValue || 0),
+                  'Profit / Difference (Rs.)': Number(m.profit || 0)
                 }));
                 exportToExcel(exportData, 'Material_Finance_Overview');
               }}

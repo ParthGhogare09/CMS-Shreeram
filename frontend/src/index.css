@@ -1758,5 +1758,191 @@ td {
 }
 
 
+/* ========================================== */
+/* DELETE CONFIRM MODAL                        */
+/* ========================================== */
 
+.delete-confirm-modal {
+  max-width: 520px;
+}
 
+.delete-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.delete-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-surface);
+}
+
+.delete-mode-option:hover {
+  border-color: var(--color-primary);
+  background-color: #fef7f5;
+}
+
+.delete-mode-option.selected {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.1);
+}
+
+.delete-mode-option.danger.selected {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.delete-mode-option.danger:hover {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.delete-mode-option input[type="radio"] {
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.delete-mode-option.danger input[type="radio"] {
+  accent-color: #ef4444;
+}
+
+.delete-mode-option-content {
+  flex: 1;
+}
+
+.delete-mode-option-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.delete-mode-option-header strong {
+  font-size: 0.88rem;
+  color: var(--color-text-main);
+}
+
+.delete-mode-option-content p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.delete-mode-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.delete-mode-badge.safe {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.delete-mode-badge.danger {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.delete-confirm-section {
+  margin-bottom: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.delete-confirm-input {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+  font-family: 'Inter', monospace;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: border-color var(--transition-fast);
+  background: var(--color-bg-surface);
+  color: var(--color-text-main);
+  box-sizing: border-box;
+}
+
+.delete-confirm-input:focus {
+  outline: none;
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.delete-confirm-input::placeholder {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* Danger & Warning solid button variants */
+.btn-danger-solid {
+  background-color: #ef4444;
+  color: #fff;
+  border: 1px solid #ef4444;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-danger-solid:hover:not(:disabled) {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.btn-warning-solid {
+  background-color: #f59e0b;
+  color: #fff;
+  border: 1px solid #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-warning-solid:hover:not(:disabled) {
+  background-color: #d97706;
+  border-color: #d97706;
+}
+
+@media (max-width: 600px) {
+  .delete-confirm-modal {
+    max-width: 95vw;
+  }
+  .delete-mode-option {
+    padding: 0.7rem 0.75rem;
+  }
+  .delete-mode-option-header strong {
+    font-size: 0.82rem;
+  }
+}

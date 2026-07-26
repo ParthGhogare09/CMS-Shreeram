@@ -13,6 +13,7 @@ import {
   MOCK_MATERIAL_USAGE, MOCK_FINANCES, EXPENSE_DATA,
   addProjectMock, addProjectLogMock
 } from '../mockData';
+import { getBatchLabels } from '../utils';
 
 const CMSContext = createContext(null);
 
@@ -89,17 +90,17 @@ export const CMSProvider = ({ children }) => {
       console.warn('Backend server unreachable. Cascading fallback to local mock data caches:', err.message);
       
       // FALLBACK CALCULATIONS
-      // 1. Projects
-      setProjects([...MOCK_PROJECTS]);
+      // 1. Projects (filter soft-deleted)
+      setProjects(MOCK_PROJECTS.filter(p => !p.isDeleted));
 
-      // 2. Workers
-      setWorkers([...MOCK_WORKERS]);
+      // 2. Workers (filter soft-deleted)
+      setWorkers(MOCK_WORKERS.filter(w => !w.isDeleted));
 
       // 3. WorkerLogs
       setDailyLogs([...MOCK_DAILY_LOGS]);
 
-      // 4. Materials
-      setMaterials([...MOCK_MATERIALS]);
+      // 4. Materials (filter soft-deleted)
+      setMaterials(MOCK_MATERIALS.filter(m => !m.isDeleted));
 
       // 5. UsageLogs
       setUsageLogs([...MOCK_MATERIAL_USAGE]);
@@ -120,14 +121,16 @@ export const CMSProvider = ({ children }) => {
         const avgDistRate = distQty > 0 ? (distValue / distQty) : Number(mat.purchaseAmount || 0);
 
         const batches = mat.batches || [];
+        const labels = getBatchLabels(batches);
         if (batches.length > 0) {
           batches.forEach((b, idx) => {
             const batchDistQty = (b.quantityPurchased || 0) - (b.quantityAvailable || 0);
             const batchDistValue = batchDistQty * avgDistRate;
             const batchPurchaseValue = (b.quantityPurchased || 0) * (b.purchaseRate || 0);
+            const bLabel = labels[idx] || `${formatDate(b.purchaseDate)}:${b.purchaseRate}`;
 
             matStats.push({
-              name: `${mat.name} (Batch ${idx + 1})`,
+              name: `${mat.name} (${bLabel})`,
               purchaseDate: b.purchaseDate,
               purchasedQty: b.quantityPurchased,
               purchaseValue: batchPurchaseValue,
@@ -139,8 +142,9 @@ export const CMSProvider = ({ children }) => {
           });
         } else {
           const totalPurchaseCost = (Number(mat.stock || 0) + distQty) * Number(mat.purchaseAmount || 0);
+          const bLabel = mat.purchaseAmount ? `₹${mat.purchaseAmount}` : 'Historic';
           matStats.push({
-            name: `${mat.name} (Batch 1)`,
+            name: `${mat.name} (${bLabel})`,
             purchaseDate: 'Historic',
             purchasedQty: Number(mat.stock || 0) + distQty,
             purchaseValue: totalPurchaseCost,
@@ -283,6 +287,11 @@ export const CMSProvider = ({ children }) => {
       await createWorkerLog(logData);
       await fetchData(false);
     } catch (err) {
+      // Surface conflict errors (409) directly to the user — do NOT fall back to mock
+      if (err?.response?.status === 409 || err?.response?.status === 400) {
+        alert(err.response.data?.error || 'Cannot save log: conflict detected.');
+        return;
+      }
       console.warn('Backend createWorkerLog failed, updating local mock dataset:', err.message);
       const worker = MOCK_WORKERS.find(w => (w.id || w._id).toString() === logData.workerId.toString());
       if (worker) {
@@ -345,6 +354,11 @@ export const CMSProvider = ({ children }) => {
       await saveMaterial(materialData);
       await fetchData(false);
     } catch (err) {
+      // Surface conflict/validation errors directly to the user
+      if (err?.response?.status === 409 || err?.response?.status === 400) {
+        alert(err.response.data?.error || 'Cannot save material: conflict detected.');
+        return;
+      }
       console.warn('Backend saveMaterial failed, updating local mock dataset:', err.message);
       const normalizedName = materialData.name ? materialData.name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
       const qty = Number(materialData.stock) || 0;
@@ -428,9 +442,11 @@ export const CMSProvider = ({ children }) => {
         if (mat) {
           if (!mat.batches) mat.batches = [];
           
+          const batchLabelsArr = getBatchLabels(mat.batches);
+          
           const indexedBatches = mat.batches.map((b, idx) => ({
             originalBatch: b,
-            batchRef: `Batch ${idx + 1}`,
+            batchRef: batchLabelsArr[idx] || `Batch ${idx + 1}`,
             purchaseRate: b.purchaseRate,
             purchaseDate: b.purchaseDate
           }));
@@ -512,56 +528,58 @@ export const CMSProvider = ({ children }) => {
     }
   };
 
-  const deleteProjectAction = async (id) => {
+  const deleteProjectAction = async (id, mode = 'soft') => {
     try {
-      await deleteProject(id);
+      await deleteProject(id, mode);
       await fetchData(false);
     } catch (err) {
       console.warn('Backend deleteProject failed, updating local mock dataset:', err.message);
       const pIdx = MOCK_PROJECTS.findIndex(p => (p.id || p._id).toString() === id.toString());
-      let pName = '';
       if (pIdx !== -1) {
-        pName = MOCK_PROJECTS[pIdx].name;
-        MOCK_PROJECTS.splice(pIdx, 1);
-      }
-      if (pName) {
-        for (let i = MOCK_DAILY_LOGS.length - 1; i >= 0; i--) {
-          if (MOCK_DAILY_LOGS[i].project === pName) {
-            MOCK_DAILY_LOGS.splice(i, 1);
+        if (mode === 'hard') {
+          const pName = MOCK_PROJECTS[pIdx].name;
+          MOCK_PROJECTS.splice(pIdx, 1);
+          if (pName) {
+            for (let i = MOCK_DAILY_LOGS.length - 1; i >= 0; i--) {
+              if (MOCK_DAILY_LOGS[i].project === pName) MOCK_DAILY_LOGS.splice(i, 1);
+            }
+            for (let i = MOCK_MATERIAL_USAGE.length - 1; i >= 0; i--) {
+              if (MOCK_MATERIAL_USAGE[i].project === pName) MOCK_MATERIAL_USAGE.splice(i, 1);
+            }
+            for (let i = MOCK_FINANCES.length - 1; i >= 0; i--) {
+              if (MOCK_FINANCES[i].project === pName) MOCK_FINANCES.splice(i, 1);
+            }
           }
-        }
-        for (let i = MOCK_MATERIAL_USAGE.length - 1; i >= 0; i--) {
-          if (MOCK_MATERIAL_USAGE[i].project === pName) {
-            MOCK_MATERIAL_USAGE.splice(i, 1);
-          }
-        }
-        for (let i = MOCK_FINANCES.length - 1; i >= 0; i--) {
-          if (MOCK_FINANCES[i].project === pName) {
-            MOCK_FINANCES.splice(i, 1);
-          }
+        } else {
+          // Soft delete — just mark as deleted, preserve all history
+          MOCK_PROJECTS[pIdx].isDeleted = true;
+          MOCK_PROJECTS[pIdx].deletedAt = new Date().toISOString();
         }
       }
       await fetchData(false);
     }
   };
 
-  const deleteWorkerAction = async (id) => {
+  const deleteWorkerAction = async (id, mode = 'soft') => {
     try {
-      await deleteWorker(id);
+      await deleteWorker(id, mode);
       await fetchData(false);
     } catch (err) {
       console.warn('Backend deleteWorker failed, updating local mock dataset:', err.message);
       const wIdx = MOCK_WORKERS.findIndex(w => (w.id || w._id).toString() === id.toString());
-      let wName = '';
       if (wIdx !== -1) {
-        wName = MOCK_WORKERS[wIdx].name;
-        MOCK_WORKERS.splice(wIdx, 1);
-      }
-      if (wName) {
-        for (let i = MOCK_DAILY_LOGS.length - 1; i >= 0; i--) {
-          if (MOCK_DAILY_LOGS[i].name === wName) {
-            MOCK_DAILY_LOGS.splice(i, 1);
+        if (mode === 'hard') {
+          const wName = MOCK_WORKERS[wIdx].name;
+          MOCK_WORKERS.splice(wIdx, 1);
+          if (wName) {
+            for (let i = MOCK_DAILY_LOGS.length - 1; i >= 0; i--) {
+              if (MOCK_DAILY_LOGS[i].name === wName) MOCK_DAILY_LOGS.splice(i, 1);
+            }
           }
+        } else {
+          // Soft delete — just mark as deleted, preserve attendance history
+          MOCK_WORKERS[wIdx].isDeleted = true;
+          MOCK_WORKERS[wIdx].deletedAt = new Date().toISOString();
         }
       }
       await fetchData(false);
@@ -592,23 +610,26 @@ export const CMSProvider = ({ children }) => {
     }
   };
 
-  const deleteMaterialAction = async (id) => {
+  const deleteMaterialAction = async (id, mode = 'soft') => {
     try {
-      await deleteMaterial(id);
+      await deleteMaterial(id, mode);
       await fetchData(false);
     } catch (err) {
       console.warn('Backend deleteMaterial failed, updating local mock dataset:', err.message);
       const mIdx = MOCK_MATERIALS.findIndex(m => (m.id || m._id).toString() === id.toString());
-      let mName = '';
       if (mIdx !== -1) {
-        mName = MOCK_MATERIALS[mIdx].name;
-        MOCK_MATERIALS.splice(mIdx, 1);
-      }
-      if (mName) {
-        for (let i = MOCK_MATERIAL_USAGE.length - 1; i >= 0; i--) {
-          if (MOCK_MATERIAL_USAGE[i].material === mName) {
-            MOCK_MATERIAL_USAGE.splice(i, 1);
+        if (mode === 'hard') {
+          const mName = MOCK_MATERIALS[mIdx].name;
+          MOCK_MATERIALS.splice(mIdx, 1);
+          if (mName) {
+            for (let i = MOCK_MATERIAL_USAGE.length - 1; i >= 0; i--) {
+              if (MOCK_MATERIAL_USAGE[i].material === mName) MOCK_MATERIAL_USAGE.splice(i, 1);
+            }
           }
+        } else {
+          // Soft delete — just mark as deleted, preserve usage history
+          MOCK_MATERIALS[mIdx].isDeleted = true;
+          MOCK_MATERIALS[mIdx].deletedAt = new Date().toISOString();
         }
       }
       await fetchData(false);
