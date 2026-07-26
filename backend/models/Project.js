@@ -12,6 +12,8 @@ const ProjectSchema = new mongoose.Schema({
   location: { type: String, trim: true },
   startDate: { type: Date },
   endDate: { type: Date },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 

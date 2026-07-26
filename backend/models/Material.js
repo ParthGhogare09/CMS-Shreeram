@@ -13,7 +13,9 @@ const MaterialSchema = new mongoose.Schema({
   stock: { type: Number, default: 0 },
   lowStockWarning: { type: Number, default: 20 },
   purchaseAmount: { type: Number, default: 0 }, // Price per unit (default/latest purchase rate)
-  batches: { type: [BatchSchema], default: [] }
+  batches: { type: [BatchSchema], default: [] },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 });
 
 module.exports = mongoose.model('Material', MaterialSchema);

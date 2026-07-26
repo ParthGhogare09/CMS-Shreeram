@@ -58,8 +58,8 @@ async function resolveWorker(workerRef) {
 // ==========================================
 router.get('/dashboard', async (req, res) => {
   try {
-    const totalProjects = await Project.countDocuments();
-    const activeWorkers = await Worker.countDocuments({ status: 'Active' });
+    const totalProjects = await Project.countDocuments({ isDeleted: { $ne: true } });
+    const activeWorkers = await Worker.countDocuments({ status: 'Active', isDeleted: { $ne: true } });
 
     // Sum Income
     const incomeResult = await Finance.aggregate([
@@ -83,7 +83,7 @@ router.get('/dashboard', async (req, res) => {
     const totalLaborWage = laborWageResult.length > 0 ? laborWageResult[0].total : 0;
 
     // Sum Material Purchase Costs (from actual batch data, not Finance records)
-    const materials = await Material.find({});
+    const materials = await Material.find({ isDeleted: { $ne: true } });
     let totalMaterialSpent = 0;
     for (const mat of materials) {
       if (mat.batches && mat.batches.length > 0) {
@@ -102,6 +102,7 @@ router.get('/dashboard', async (req, res) => {
 
     // Budget from projects
     const budgetResult = await Project.aggregate([
+      { $match: { isDeleted: { $ne: true } } },
       { $group: { _id: null, total: { $sum: '$budget' } } }
     ]);
     const totalBudget = budgetResult.length > 0 ? budgetResult[0].total : 0;
@@ -192,7 +193,7 @@ router.get('/dashboard', async (req, res) => {
 // ==========================================
 router.get('/projects', async (req, res) => {
   try {
-    const projects = await Project.find({});
+    const projects = await Project.find({ isDeleted: { $ne: true } });
     const projectsList = [];
 
     for (const p of projects) {
@@ -534,7 +535,7 @@ router.post('/projects/:id/logs', async (req, res) => {
 // ==========================================
 router.get('/workers', async (req, res) => {
   try {
-    const workers = await Worker.find({});
+    const workers = await Worker.find({ isDeleted: { $ne: true } });
     const workersList = workers.map(w => ({
       id: w._id,
       name: w.name,
@@ -643,6 +644,38 @@ router.post('/workers/logs', async (req, res) => {
     if (!projectObj) {
       return res.status(400).json({ error: 'A valid site/project must be selected before logging worker attendance.' });
     }
+
+    // === CONFLICT CHECK ===
+    // Check if the worker already has any log for this date
+    const existingLogs = await WorkerLog.find({ worker: worker._id, date }).populate('project');
+
+    if (existingLogs.length > 0) {
+      // Rule 1: Duplicate — same worker, same date, same project
+      const sameProjectLog = existingLogs.find(l => l.project && l.project._id.toString() === projectObj._id.toString());
+      if (sameProjectLog) {
+        return res.status(409).json({
+          error: `${worker.name} is already allocated to "${projectObj.name}" on ${date}. Cannot add a duplicate entry.`
+        });
+      }
+
+      // Rule 2: Worker is fully occupied (Full Day or Overtime at another project)
+      const occupiedLog = existingLogs.find(l => l.workTime === 'Full Day' || l.workTime === 'Overtime');
+      if (occupiedLog) {
+        const occupiedProject = occupiedLog.project ? occupiedLog.project.name : 'another site';
+        return res.status(409).json({
+          error: `${worker.name} is already occupied at "${occupiedProject}" with a ${occupiedLog.workTime} on ${date}. Cannot allocate to another project.`
+        });
+      }
+
+      // Rule 3: If the new entry is Full Day/Overtime but worker already has a Half Day somewhere
+      if ((workTime === 'Full Day' || workTime === 'Overtime') && existingLogs.length > 0) {
+        const existingProject = existingLogs[0].project ? existingLogs[0].project.name : 'another site';
+        return res.status(409).json({
+          error: `${worker.name} already has a Half Day allocation at "${existingProject}" on ${date}. Cannot add a Full Day entry.`
+        });
+      }
+    }
+    // === END CONFLICT CHECK ===
 
     // Wage calculation logic
     let multiplier = 1;
@@ -802,7 +835,7 @@ function restoreMaterialStock(materialObj, quantity, rate, date) {
   materialObj.stock = materialObj.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
 }
 
-function deductMaterialStock(materialObj, quantity, rate) {
+function deductMaterialStock(materialObj, quantity, rate, selectedBatchIndex = null) {
   if (!materialObj.batches) {
     materialObj.batches = [];
   }
@@ -816,28 +849,62 @@ function deductMaterialStock(materialObj, quantity, rate) {
     });
   }
 
-  // Map original indices so we can identify stable "Batch 1", "Batch 2", etc.
+  // Map original indices with date:rate labels instead of "Batch 1", "Batch 2"
+  // If multiple batches share the same date+rate, append an index suffix
+  const formatShortDate = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('-')) {
+      const [y, m, d] = dateStr.split('-');
+      if (y && m && d) return `${d}/${m}/${y.slice(-2)}`;
+    }
+    return dateStr;
+  };
+  
+  const baseLabels = materialObj.batches.map(b => {
+    const dateStr = formatShortDate(b.purchaseDate || '');
+    const rate = b.purchaseRate ?? 0;
+    return `${dateStr}:${rate}`;
+  });
+  
+  const labelCounts = {};
+  baseLabels.forEach(label => { labelCounts[label] = (labelCounts[label] || 0) + 1; });
+  
+  const labelSeen = {};
+  const batchLabels = baseLabels.map(label => {
+    if (labelCounts[label] > 1) {
+      labelSeen[label] = (labelSeen[label] || 0) + 1;
+      return `${label}:${labelSeen[label]}`;
+    }
+    return label;
+  });
+
   const indexedBatches = materialObj.batches.map((b, idx) => ({
     originalBatch: b,
-    batchRef: `Batch ${idx + 1}`,
+    batchRef: batchLabels[idx],
     purchaseRate: b.purchaseRate,
     purchaseDate: b.purchaseDate
   }));
 
   let remaining = quantity;
   const consumed = [];
-  
-  // First pass: try exact purchase rate match
-  const matchingIndexed = indexedBatches.find(b => b.purchaseRate === rate && b.originalBatch.quantityAvailable > 0);
-  if (matchingIndexed) {
-    const deduct = Math.min(remaining, matchingIndexed.originalBatch.quantityAvailable);
-    matchingIndexed.originalBatch.quantityAvailable -= deduct;
-    remaining -= deduct;
-    consumed.push({ 
-      batchRef: matchingIndexed.batchRef, 
-      purchaseRate: matchingIndexed.purchaseRate, 
-      quantity: deduct 
-    });
+
+  // First pass: try to deduct from selected batch index (if provided), else match by rate
+  const targetIdx = (typeof selectedBatchIndex === 'number' && selectedBatchIndex >= 0 && selectedBatchIndex < indexedBatches.length)
+    ? selectedBatchIndex
+    : indexedBatches.findIndex(b => b.purchaseRate === rate && b.originalBatch.quantityAvailable > 0);
+
+  if (targetIdx >= 0) {
+    const target = indexedBatches[targetIdx];
+    if (target && target.originalBatch.quantityAvailable > 0) {
+      const deduct = Math.min(remaining, target.originalBatch.quantityAvailable);
+      target.originalBatch.quantityAvailable -= deduct;
+      remaining -= deduct;
+      consumed.push({ 
+        batchRef: target.batchRef, 
+        purchaseRate: target.purchaseRate, 
+        quantity: deduct 
+      });
+    }
   }
 
   // Second pass: FIFO across remaining available batches
@@ -864,7 +931,7 @@ function deductMaterialStock(materialObj, quantity, rate) {
 
 router.get('/materials', async (req, res) => {
   try {
-    const materials = await Material.find({});
+    const materials = await Material.find({ isDeleted: { $ne: true } });
     const materialsList = materials.map(m => ({
       id: m._id,
       name: m.name,
@@ -892,7 +959,18 @@ router.post('/materials', async (req, res) => {
     if (id && mongoose.Types.ObjectId.isValid(id)) {
       material = await Material.findById(id);
     } else if (normalizedName) {
-      material = await Material.findOne({ name: normalizedName });
+      // First try to find an active material with this name
+      material = await Material.findOne({ name: normalizedName, isDeleted: { $ne: true } });
+      
+      // If not found, check if there's a soft-deleted one — reactivate it
+      if (!material) {
+        const deletedMat = await Material.findOne({ name: normalizedName, isDeleted: true });
+        if (deletedMat) {
+          deletedMat.isDeleted = false;
+          deletedMat.deletedAt = undefined;
+          material = deletedMat;
+        }
+      }
     }
     
     const qty = Number(stock);
@@ -953,6 +1031,9 @@ router.post('/materials', async (req, res) => {
       batches: material.batches || []
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: `A material with the name "${req.body.name}" already exists.` });
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -1069,9 +1150,10 @@ router.get('/materials/usage', async (req, res) => {
 // Log material usage (deducts stock)
 router.post('/materials/usage', async (req, res) => {
   try {
-    const { id, material, project, quantity, distributionRate, date } = req.body;
+    const { id, material, project, quantity, distributionRate, selectedBatchIndex, date } = req.body;
     const qty = Number(quantity);
     const dRate = Number(distributionRate);
+    const batchIdx = (selectedBatchIndex !== undefined && selectedBatchIndex !== null) ? Number(selectedBatchIndex) : null;
 
     let matObj = await resolveMaterial(material);
     if (!matObj) return res.status(404).json({ error: 'Material not found' });
@@ -1106,7 +1188,7 @@ router.post('/materials/usage', async (req, res) => {
 
       // Apply new stock deduction and trace consumed batches
       matObj = await Material.findById(matObj._id);
-      const consumed = deductMaterialStock(matObj, qty, dRate);
+      const consumed = deductMaterialStock(matObj, qty, dRate, batchIdx);
       await matObj.save();
 
       usageLog.purchaseRateInfo = consumed.length > 0
@@ -1124,7 +1206,7 @@ router.post('/materials/usage', async (req, res) => {
       await usageLog.save();
     } else {
       // Deduct stock and trace consumed batches first
-      const consumed = deductMaterialStock(matObj, qty, dRate);
+      const consumed = deductMaterialStock(matObj, qty, dRate, batchIdx);
       await matObj.save();
 
       const rateInfoStr = consumed.length > 0
@@ -1241,13 +1323,40 @@ router.get('/finances', async (req, res) => {
 
       const batches = mat.batches || [];
       if (batches.length > 0) {
+        const formatShortDate = (dateStr) => {
+          if (!dateStr) return '';
+          if (dateStr.includes('-')) {
+            const [y, m, d] = dateStr.split('-');
+            if (y && m && d) return `${d}/${m}/${y.slice(-2)}`;
+          }
+          return dateStr;
+        };
+
+        const baseLabels = batches.map(b => {
+          const dateStr = formatShortDate(b.purchaseDate || '');
+          const rate = b.purchaseRate ?? 0;
+          return `${dateStr}:${rate}`;
+        });
+
+        const labelCounts = {};
+        baseLabels.forEach(label => { labelCounts[label] = (labelCounts[label] || 0) + 1; });
+
+        const labelSeen = {};
+        const batchLabels = baseLabels.map(label => {
+          if (labelCounts[label] > 1) {
+            labelSeen[label] = (labelSeen[label] || 0) + 1;
+            return `${label}:${labelSeen[label]}`;
+          }
+          return label;
+        });
+
         batches.forEach((b, idx) => {
           const batchDistQty = b.quantityPurchased - b.quantityAvailable;
           const batchDistValue = batchDistQty * avgDistRate;
           const batchPurchaseValue = b.quantityPurchased * b.purchaseRate;
 
           materialStats.push({
-            name: `${mat.name} (Batch ${idx + 1})`,
+            name: `${mat.name} (${batchLabels[idx]})`,
             purchaseDate: b.purchaseDate,
             purchasedQty: b.quantityPurchased,
             purchaseValue: batchPurchaseValue,
@@ -1258,8 +1367,9 @@ router.get('/finances', async (req, res) => {
           });
         });
       } else {
+        const bLabel = mat.purchaseAmount ? `₹${mat.purchaseAmount}` : 'Historic';
         materialStats.push({
-          name: `${mat.name} (Batch 1)`,
+          name: `${mat.name} (${bLabel})`,
           purchaseDate: 'Historic',
           purchasedQty: mat.stock + distQty,
           purchaseValue: totalPurchaseCost,
@@ -1288,6 +1398,10 @@ router.get('/finances', async (req, res) => {
       });
     }
 
+    // 6. Count active projects
+    const activeProjectsCount = await Project.countDocuments({ status: 'Active' });
+    const totalProjectsCount = await Project.countDocuments({});
+
     res.json({
       incomes: mappedIncomes,
       stats: {
@@ -1296,7 +1410,9 @@ router.get('/finances', async (req, res) => {
         totalLaborWage,
         totalLaborPaid,
         totalLaborPending,
-        totalMaterialSpent
+        totalMaterialSpent,
+        activeProjects: activeProjectsCount,
+        totalProjects: totalProjectsCount
       },
       labourStats,
       materialStats
@@ -1345,15 +1461,24 @@ router.post('/finances', async (req, res) => {
 // Delete Project (and cascade related logs/finances)
 router.delete('/projects/:id', async (req, res) => {
   try {
-    const project = await Project.findByIdAndDelete(req.params.id);
+    const mode = req.query.mode || 'soft';
+    const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    // Cascade delete related records
-    await WorkerLog.deleteMany({ project: req.params.id });
-    await MaterialUsage.deleteMany({ project: req.params.id });
-    await Finance.deleteMany({ project: req.params.id });
-    
-    res.json({ message: 'Project and all related logs/finances deleted successfully' });
+    if (mode === 'hard') {
+      // Permanently delete project and all related records
+      await Project.findByIdAndDelete(req.params.id);
+      await WorkerLog.deleteMany({ project: req.params.id });
+      await MaterialUsage.deleteMany({ project: req.params.id });
+      await Finance.deleteMany({ project: req.params.id });
+      res.json({ message: 'Project and all related logs/finances permanently deleted.' });
+    } else {
+      // Soft delete — mark as deleted, preserve all transaction history
+      project.isDeleted = true;
+      project.deletedAt = new Date();
+      await project.save();
+      res.json({ message: 'Project removed from active list. All transaction history preserved for audit.' });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1362,13 +1487,22 @@ router.delete('/projects/:id', async (req, res) => {
 // Delete Worker (and cascade attendance logs)
 router.delete('/workers/:id', async (req, res) => {
   try {
-    const worker = await Worker.findByIdAndDelete(req.params.id);
+    const mode = req.query.mode || 'soft';
+    const worker = await Worker.findById(req.params.id);
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
     
-    // Cascade delete worker logs
-    await WorkerLog.deleteMany({ worker: req.params.id });
-    
-    res.json({ message: 'Worker and all attendance logs deleted successfully' });
+    if (mode === 'hard') {
+      // Permanently delete worker and all attendance logs
+      await Worker.findByIdAndDelete(req.params.id);
+      await WorkerLog.deleteMany({ worker: req.params.id });
+      res.json({ message: 'Worker and all attendance logs permanently deleted.' });
+    } else {
+      // Soft delete — mark as deleted, preserve attendance history
+      worker.isDeleted = true;
+      worker.deletedAt = new Date();
+      await worker.save();
+      res.json({ message: 'Worker removed from active list. All attendance history preserved for audit.' });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1400,13 +1534,22 @@ router.delete('/workers/logs/:id', async (req, res) => {
 // Delete Material (and cascade usage logs)
 router.delete('/materials/:id', async (req, res) => {
   try {
-    const material = await Material.findByIdAndDelete(req.params.id);
+    const mode = req.query.mode || 'soft';
+    const material = await Material.findById(req.params.id);
     if (!material) return res.status(404).json({ error: 'Material not found' });
     
-    // Cascade delete usage
-    await MaterialUsage.deleteMany({ material: req.params.id });
-    
-    res.json({ message: 'Material and all usage logs deleted successfully' });
+    if (mode === 'hard') {
+      // Permanently delete material and all usage logs
+      await Material.findByIdAndDelete(req.params.id);
+      await MaterialUsage.deleteMany({ material: req.params.id });
+      res.json({ message: 'Material and all usage logs permanently deleted.' });
+    } else {
+      // Soft delete — mark as deleted, preserve usage history
+      material.isDeleted = true;
+      material.deletedAt = new Date();
+      await material.save();
+      res.json({ message: 'Material removed from active list. All usage history preserved for audit.' });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
