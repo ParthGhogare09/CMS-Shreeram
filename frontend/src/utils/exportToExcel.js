@@ -1,11 +1,11 @@
-﻿import ExcelJS from 'exceljs';
+import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Load base64 logo helper
+// Load base64 logo helper (fetches /logo.jpg from public folder)
 const getLogoBase64 = async () => {
   try {
-    const response = await fetch('/logo.png');
+    const response = await fetch('/logo.jpg');
     if (!response.ok) throw new Error('Logo fetch failed');
     const blob = await response.blob();
     return new Promise((resolve) => {
@@ -14,7 +14,7 @@ const getLogoBase64 = async () => {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('Error fetching logo:', error);
+    console.warn('Logo fetch failed, continuing without logo:', error);
     return null;
   }
 };
@@ -462,17 +462,19 @@ const generateExcelReport = async (data, fileName, keys, headers, logoBase64) =>
   // Add brand logo
   if (logoBase64) {
     try {
+      // Strip the data: prefix, ExcelJS needs raw base64
+      const rawB64 = logoBase64.includes(',') ? logoBase64.split(',')[1] : logoBase64;
       const imageId = workbook.addImage({
-        base64: logoBase64,
-        extension: 'png',
+        base64: rawB64,
+        extension: 'jpeg',
       });
       worksheet.addImage(imageId, {
-        tl: { col: 0.1, row: 0.8 },
-        ext: { width: 62, height: 62 },
+        tl: { col: 0.1, row: 0.2 },
+        ext: { width: 72, height: 72 },
         editAs: 'absolute'
       });
     } catch (e) {
-      console.error('Error attaching logo to Excel:', e);
+      console.warn('Logo attach to Excel failed:', e);
     }
   }
 
@@ -705,57 +707,73 @@ const generatePdfReport = async (data, fileName, keys, headers, logoBase64) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Draw corporate header
+  // Draw corporate header — white background with logo
+  const orange  = [245, 130, 32];
+  const dark    = [25, 25, 35];
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, 44, 'F');
+  doc.setFillColor(...orange);
+  doc.rect(0, 0, 5, 44, 'F');
+
+  // Logo
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20);
+      // jsPDF needs raw base64 without the data: prefix
+      const rawB64 = logoBase64.includes(',') ? logoBase64.split(',')[1] : logoBase64;
+      doc.addImage(rawB64, 'JPEG', 8, 4, 36, 36);
     } catch (e) {
-      console.error('Error attaching logo to PDF:', e);
+      console.warn('Logo attach to PDF failed:', e);
     }
   }
 
-  // Branding Typography
+  // Company name & tagline
+  const textStartX = logoBase64 ? 48 : 12;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(244, 81, 30); // Saffron (#f4511e)
-  doc.text('SHREERAM', 38, 16);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(78, 52, 46); // Brown (#4e342e)
-  doc.text('GOVT. CONTRACTOR & BUILDER', 38, 21);
-
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(43, 35, 31);
-  doc.text(fileName.replace(/_/g, ' '), 38, 27);
-
-  // Date align right
+  doc.setFontSize(15);
+  doc.setTextColor(...dark);
+  doc.text('SHREERAM CONSTRUCTION', textStartX, 14);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(120, 108, 102);
-  const dateStr = `Report Date: ${new Date().toLocaleDateString('en-IN')}`;
-  doc.text(dateStr, pageWidth - 15 - doc.getTextWidth(dateStr), 16);
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 70, 20);
+  doc.text('Civil Construction & Government Contractor', textStartX, 20);
 
-  // Line divider
-  doc.setDrawColor(228, 222, 200);
-  doc.setLineWidth(0.4);
-  doc.line(15, 33, pageWidth - 15, 33);
+  // Report title below name
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...dark);
+  const cleanTitle = fileName.replace(/_/g, ' ');
+  doc.text(cleanTitle, textStartX, 28);
+
+  // Contact info — right side
+  const rightX = pageWidth - 10;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(60, 60, 80);
+  doc.text('Mob: +91 7720900336', rightX, 10, { align: 'right' });
+  doc.text('GST: 27CZPPG0505C1ZR',  rightX, 15, { align: 'right' });
+  doc.text('shreeramconstruction1111@gmail.com', rightX, 20, { align: 'right' });
+  doc.text(`Report Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, rightX, 25, { align: 'right' });
+
+  // Orange divider
+  doc.setDrawColor(...orange);
+  doc.setLineWidth(1);
+  doc.line(0, 44, pageWidth, 44);
 
   // Summary logic
   const summaryData = getSummaryData(data, fileName);
-  let tableStartY = 38;
+  let tableStartY = 52;
 
   if (summaryData.length > 0) {
     // Clean currency symbol in summary box
     summaryData.forEach(item => {
-      if (typeof item[1] === 'string' && item[1].includes('₹')) {
-        item[1] = item[1].replace(/₹/g, 'Rs.');
+      if (typeof item[1] === 'string' && item[1].includes('\u20b9')) {
+        item[1] = item[1].replace(/\u20b9/g, 'Rs.');
       }
     });
 
     autoTable(doc, {
-      startY: 38,
+      startY: 52,
       head: [['Summary Metrics', 'Count / Value']],
       body: summaryData,
       theme: 'grid',
@@ -767,16 +785,16 @@ const generatePdfReport = async (data, fileName, keys, headers, logoBase64) => {
         lineWidth: 0.1
       },
       headStyles: {
-        fillColor: [78, 52, 46], // Brown header
+        fillColor: [30, 45, 80],
         textColor: [255, 255, 255],
         fontSize: 9,
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 50, fontStyle: 'bold' },
-        1: { cellWidth: 40, halign: 'right' }
+        0: { cellWidth: 55, fontStyle: 'bold' },
+        1: { cellWidth: 45, halign: 'right' }
       },
-      margin: { left: 15, right: 15 }
+      margin: { left: 10, right: 10 }
     });
     tableStartY = doc.lastAutoTable.finalY + 8;
   }

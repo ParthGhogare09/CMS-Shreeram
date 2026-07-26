@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw, Briefcase, CheckCircle, IndianRupee, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getLogoBase64Raw } from '../utils/logoBase64';
 import { useCMS } from '../context/CMSContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import SearchWithSuggestions from '../components/SearchWithSuggestions';
@@ -62,7 +63,7 @@ const Projects = () => {
   };
 
   // ── Project Bill PDF Generator ──────────────────────────────────────────────
-  const generateProjectBillPdf = (project) => {
+  const generateProjectBillPdf = async (project) => {
     const projectIncomes = incomes
       .filter(i => i.project === project.name)
       .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -71,7 +72,7 @@ const Projects = () => {
     const totalCollected = projectIncomes.reduce((s, i) => s + Number(i.amount || 0), 0);
     const totalRemaining = Math.max(0, totalBudget - totalCollected);
 
-    const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
@@ -82,58 +83,63 @@ const Projects = () => {
     const white    = [255, 255, 255];
     const lightBg  = [248, 250, 253];
 
-    // ── Header Banner ──
+    // ── Header: white background with logo ──
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageW, 42, 'F');
+
+    // Left orange accent stripe
     doc.setFillColor(...orange);
-    doc.rect(0, 0, pageW, 36, 'F');
+    doc.rect(0, 0, 5, 42, 'F');
 
-    // Left accent stripe
-    doc.setFillColor(220, 100, 10);
-    doc.rect(0, 0, 5, 36, 'F');
+    // Logo (left side)
+    const logoB64 = await getLogoBase64Raw();
+    if (logoB64) {
+      doc.addImage(logoB64, 'JPEG', 8, 3, 36, 36);
+    }
 
-    // Company Name
+    // Company name & tagline (right of logo)
+    const textX = logoB64 ? 48 : 12;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(17);
-    doc.setTextColor(...white);
-    doc.text('SHREERAM CONSTRUCTION', 12, 13);
-
-    // Tagline / type
+    doc.setFontSize(15);
+    doc.setTextColor(...dark);
+    doc.text('SHREERAM CONSTRUCTION', textX, 12);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
-    doc.setTextColor(255, 235, 200);
-    doc.text('Civil Construction & Project Management', 12, 19);
+    doc.setTextColor(100, 70, 20);
+    doc.text('Civil Construction & Government Contractor', textX, 18);
 
-    // Contact info — right side
+    // Contact info — right side of header
+    const rightX = pageW - 12;
     doc.setFontSize(7);
-    doc.setTextColor(...white);
-    const rightX = pageW - 14;
+    doc.setTextColor(60, 60, 80);
     doc.text('Mob: +91 7720900336', rightX, 10, { align: 'right' });
     doc.text('GST: 27CZPPG0505C1ZR',  rightX, 15, { align: 'right' });
     doc.text('Email: shreeramconstruction1111@gmail.com', rightX, 20, { align: 'right' });
     doc.text('A/P SHINGAVE (PARGAON), AMBEGAON,', rightX, 25, { align: 'right' });
     doc.text('PUNE - 412406', rightX, 30, { align: 'right' });
 
-    // ── Divider line below header ──
+    // Orange divider line below header
     doc.setDrawColor(...orange);
-    doc.setLineWidth(0.6);
-    doc.line(0, 36, pageW, 36);
+    doc.setLineWidth(1);
+    doc.line(0, 42, pageW, 42);
 
     // ── Document Title ──
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(...dark);
-    doc.text('SITE INCOME BILL', pageW / 2, 46, { align: 'center' });
+    doc.text('SITE INCOME BILL', pageW / 2, 52, { align: 'center' });
 
     // Underline the title
     doc.setDrawColor(...orange);
     doc.setLineWidth(0.5);
-    doc.line(pageW / 2 - 32, 48, pageW / 2 + 32, 48);
+    doc.line(pageW / 2 - 32, 54, pageW / 2 + 32, 54);
 
     // ── Project Info Box ──
     doc.setFillColor(...lightBg);
-    doc.roundedRect(12, 52, pageW - 24, 36, 3, 3, 'F');
+    doc.roundedRect(12, 58, pageW - 24, 36, 3, 3, 'F');
     doc.setDrawColor(220, 225, 235);
     doc.setLineWidth(0.3);
-    doc.roundedRect(12, 52, pageW - 24, 36, 3, 3, 'S');
+    doc.roundedRect(12, 58, pageW - 24, 36, 3, 3, 'S');
 
     const col1 = 18, col2 = pageW / 2 + 4;
     doc.setFont('helvetica', 'bold');
@@ -141,44 +147,44 @@ const Projects = () => {
     doc.setTextColor(...dark);
 
     // Left column
-    doc.text('Project / Site:', col1, 60);
+    doc.text('Project / Site:', col1, 66);
     doc.setFont('helvetica', 'normal');
-    doc.text(project.name, col1 + 30, 60);
+    doc.text(project.name, col1 + 30, 66);
 
     doc.setFont('helvetica', 'bold');
-    doc.text('Client:', col1, 67);
+    doc.text('Client:', col1, 73);
     doc.setFont('helvetica', 'normal');
-    doc.text(project.client || '-', col1 + 30, 67);
+    doc.text(project.client || '-', col1 + 30, 73);
 
     doc.setFont('helvetica', 'bold');
-    doc.text('Location:', col1, 74);
+    doc.text('Location:', col1, 80);
     doc.setFont('helvetica', 'normal');
-    doc.text(project.location || '-', col1 + 30, 74);
+    doc.text(project.location || '-', col1 + 30, 80);
 
     doc.setFont('helvetica', 'bold');
-    doc.text('Status:', col1, 81);
+    doc.text('Status:', col1, 87);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(project.status === 'Active' ? 16 : 100, project.status === 'Active' ? 185 : 100, project.status === 'Active' ? 129 : 100);
-    doc.text(project.status || 'Active', col1 + 30, 81);
+    doc.text(project.status || 'Active', col1 + 30, 87);
     doc.setTextColor(...dark);
 
     // Right column
     doc.setFont('helvetica', 'bold');
-    doc.text('Bill Date:', col2, 60);
+    doc.text('Bill Date:', col2, 66);
     doc.setFont('helvetica', 'normal');
-    doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 60);
+    doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 66);
 
     if (project.startDate) {
       doc.setFont('helvetica', 'bold');
-      doc.text('Start Date:', col2, 67);
+      doc.text('Start Date:', col2, 73);
       doc.setFont('helvetica', 'normal');
-      doc.text(new Date(project.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 67);
+      doc.text(new Date(project.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 73);
     }
     if (project.endDate) {
       doc.setFont('helvetica', 'bold');
-      doc.text('End Date:', col2, 74);
+      doc.text('End Date:', col2, 80);
       doc.setFont('helvetica', 'normal');
-      doc.text(new Date(project.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 74);
+      doc.text(new Date(project.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col2 + 25, 80);
     }
 
     // ── Payments Table ──
@@ -203,7 +209,7 @@ const Projects = () => {
     }
 
     autoTable(doc, {
-      startY: 94,
+      startY: 100,
       head: [['#', 'Date', 'Payment Type', 'Total Budget', 'Amount Received', 'Remaining Amount']],
       body: tableBody,
       theme: 'grid',
