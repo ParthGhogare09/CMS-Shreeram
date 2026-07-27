@@ -45,7 +45,7 @@ const Materials = () => {
 
   const [showAddUsage, setShowAddUsage] = useState(false);
   const [showEditUsage, setShowEditUsage] = useState(false);
-  const [currentUsage, setCurrentUsage] = useState({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+  const [currentUsage, setCurrentUsage] = useState({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '', type: 'Material' });
   const [selectedBatchIndex, setSelectedBatchIndex] = useState(null); // Track which batch was selected for deduction, independently of rate
 
   const [materialSearch, setMaterialSearch] = useState('');
@@ -121,22 +121,47 @@ const Materials = () => {
       return;
     }
 
-    const selectedMat = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').toLowerCase());
-    const requestedQty = Number(currentUsage.quantity) || 0;
+    if (!currentUsage.material || !currentUsage.material.trim()) {
+      alert(currentUsage.type === 'Miscellaneous' ? 'Miscellaneous item description is required.' : 'Material Name is required.');
+      return;
+    }
+
+    const requestedQty = Number(currentUsage.quantity) || (currentUsage.type === 'Miscellaneous' ? 1 : 0);
     const rate = Number(currentUsage.distributionRate) || 0;
-    const stockAvailable = selectedMat ? selectedMat.stock : 0;
 
     if (requestedQty < 0) {
       alert('Quantity cannot be negative.');
       return;
     }
     if (rate < 0) {
-      alert('Distribution Rate cannot be negative.');
+      alert('Distribution Rate / Cost cannot be negative.');
       return;
     }
 
+    if (currentUsage.type === 'Miscellaneous') {
+      logMaterialUsageAction({
+        id: showEditUsage ? currentUsage.id : undefined,
+        type: 'Miscellaneous',
+        isMisc: true,
+        material: currentUsage.material.trim(),
+        project: currentUsage.project.trim(),
+        quantity: requestedQty,
+        unit: currentUsage.unit || 'Lumpsum',
+        distributionRate: rate,
+        date: currentUsage.date
+      });
+      setShowAddUsage(false);
+      setShowEditUsage(false);
+      setSelectedBatchIndex(null);
+      setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '', type: 'Material' });
+      return;
+    }
+
+    const selectedMat = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').toLowerCase());
+    const stockAvailable = selectedMat ? selectedMat.stock : 0;
+
     if (!showEditUsage && (!selectedMat || stockAvailable <= 0)) {
-      alert(`Material "${currentUsage.material}" is out of stock (Available: 0). Please add stock first before logging material usage.`);
+      alert(`Material "${currentUsage.material}" is out of stock (Available: 0). Please add stock first or switch to "Miscellaneous Value".`);
       return;
     }
 
@@ -149,18 +174,19 @@ const Materials = () => {
 
     logMaterialUsageAction({
       id: showEditUsage ? currentUsage.id : undefined,
+      type: 'Material',
       material: currentUsage.material,
       project: currentUsage.project,
-      quantity: Number(currentUsage.quantity),
+      quantity: requestedQty,
       unit: unit,
-      distributionRate: Number(currentUsage.distributionRate),
+      distributionRate: rate,
       selectedBatchIndex: selectedBatchIndex,
       date: currentUsage.date
     });
     setShowAddUsage(false);
     setShowEditUsage(false);
     setSelectedBatchIndex(null);
-    setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+    setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '', type: 'Material' });
   };
 
   if (loading) {
@@ -200,7 +226,7 @@ const Materials = () => {
                 alert('No site/project found. Please add a site/project first before logging material usage.');
                 return;
               }
-              setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '' });
+              setCurrentUsage({ id: '', material: '', project: '', quantity: '', unit: '', date: new Date().toISOString().split('T')[0], distributionRate: '', type: 'Material' });
               setSelectedBatchIndex(null);
               setShowAddUsage(true);
             }}>
@@ -870,46 +896,56 @@ const Materials = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsageLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).map(log => (
-                  <tr key={log.id || log._id}>
-                    <td data-label="Log ID">L{String(log.id || log._id || '').slice(-3).padStart(3, '0')}</td>
-                    <td data-label="Material" style={{ fontWeight: 600 }}>{log.material}</td>
-                    <td data-label="Batch(es)">{log.batchesConsumed || 'Batch 1'}</td>
-                    <td data-label="Purchase Rate" style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{log.purchaseRateInfo || 'N/A'}</td>
-                    <td data-label="Purchase Cost" style={{ fontWeight: 600 }}>₹{log.purchaseCost?.toLocaleString('en-IN') || 0}</td>
-                    <td data-label="Project">{log.project}</td>
-                    <td data-label="Quantity" style={{ color: '#ef4444' }}>-{log.quantity}</td>
-                    <td data-label="Unit">{log.unit}</td>
-                    <td data-label="Distribution Rate">₹{log.distributionRate?.toLocaleString('en-IN') || 0}</td>
-                    <td data-label="Total Distributed Amount" style={{ fontWeight: 600 }}>₹{((log.quantity || 0) * (log.distributionRate || 0)).toLocaleString('en-IN')}</td>
-                    <td data-label="Date">{formatDate(log.date)}</td>
-                    <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                      <button 
-                        className="btn btn-secondary" 
-                        style={{ padding: '0.35rem 0.45rem' }} 
-                        title="Edit Usage Log"
-                        onClick={() => {
-                          setCurrentUsage(log);
-                          setShowEditUsage(true);
-                        }}
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button 
-                        className="btn btn-secondary text-danger" 
-                        style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
-                        title="Delete Usage Log"
-                        onClick={() => {
-                          if (window.confirm("Are you sure you want to delete this material usage log? The stock level and finances will be adjusted back.")) {
-                            deleteMaterialUsageAction(log.id || log._id);
-                          }
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredUsageLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).map(log => {
+                  const isMisc = log.type === 'Miscellaneous' || log.isMisc;
+                  return (
+                    <tr key={log.id || log._id}>
+                      <td data-label="Log ID">L{String(log.id || log._id || '').slice(-3).padStart(3, '0')}</td>
+                      <td data-label="Material" style={{ fontWeight: 600 }}>
+                        {log.material}
+                        {isMisc && (
+                          <span style={{ fontSize: '0.75rem', backgroundColor: '#fef3c7', color: '#d97706', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: 600 }}>
+                            Misc
+                          </span>
+                        )}
+                      </td>
+                      <td data-label="Batch(es)">{isMisc ? 'N/A' : (log.batchesConsumed || 'Batch 1')}</td>
+                      <td data-label="Purchase Rate" style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{isMisc ? 'N/A' : (log.purchaseRateInfo || 'N/A')}</td>
+                      <td data-label="Purchase Cost" style={{ fontWeight: 600 }}>{isMisc ? 'N/A' : `₹${(log.purchaseCost || 0).toLocaleString('en-IN')}`}</td>
+                      <td data-label="Project">{log.project}</td>
+                      <td data-label="Quantity" style={{ color: isMisc ? 'inherit' : '#ef4444' }}>{isMisc ? (log.quantity || 1) : `-${log.quantity}`}</td>
+                      <td data-label="Unit">{log.unit || (isMisc ? 'Lumpsum' : 'Units')}</td>
+                      <td data-label="Distribution Rate">₹{(log.distributionRate || 0).toLocaleString('en-IN')}</td>
+                      <td data-label="Total Distributed Amount" style={{ fontWeight: 600 }}>₹{((log.quantity || 1) * (log.distributionRate || 0)).toLocaleString('en-IN')}</td>
+                      <td data-label="Date">{formatDate(log.date)}</td>
+                      <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.35rem 0.45rem' }} 
+                          title="Edit Usage Log"
+                          onClick={() => {
+                            setCurrentUsage({ ...log, type: isMisc ? 'Miscellaneous' : 'Material' });
+                            setShowEditUsage(true);
+                          }}
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button 
+                          className="btn btn-secondary text-danger" 
+                          style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }} 
+                          title="Delete Usage Log"
+                          onClick={() => {
+                            if (window.confirm("Are you sure you want to delete this log?")) {
+                              deleteMaterialUsageAction(log.id || log._id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredUsageLogs.length === 0 && (
                   <tr><td colSpan="12" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No usage logs found.</td></tr>
                 )}
@@ -1007,122 +1043,220 @@ const Materials = () => {
               </button>
             </div>
             <form onSubmit={handleSaveUsage} className="modal-form">
-              <div className="form-group">
-                <label>Material Name</label>
-                <input 
-                  required 
-                  type="text" 
-                  list="material-names-list"
-                  value={currentUsage.material} 
-                  onChange={e => {
-                    const matName = e.target.value;
-                    const mat = materials.find(m => m.name.toLowerCase() === matName.toLowerCase());
-                    setCurrentUsage({
-                      ...currentUsage, 
-                      material: matName, 
-                      unit: mat ? mat.unit : currentUsage.unit, 
-                      distributionRate: mat ? mat.purchaseAmount : currentUsage.distributionRate
-                    });
-                  }} 
-                  placeholder="Type or select material..." 
-                />
-                <datalist id="material-names-list">
-                  {materials.map((m, i) => (
-                    <option key={i} value={m.name}>Stock: {m.stock} {m.unit} | Rate: ₹{m.purchaseAmount}</option>
-                  ))}
-                </datalist>
-                {currentUsage.material && (() => {
-                  const matched = materials.find(m => m.name.toLowerCase() === currentUsage.material.trim().toLowerCase());
-                  return matched ? (
-                    <span style={{ fontSize: '0.8rem', color: matched.stock > 0 ? '#10b981' : '#ef4444', marginTop: '0.35rem', display: 'block', fontWeight: 600 }}>
-                      Available Stock: {matched.stock} {matched.unit} (Latest Rate: ₹{matched.purchaseAmount})
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '0.8rem', color: '#f59e0b', marginTop: '0.35rem', display: 'block' }}>
-                      Material not found in stock. Add stock first before logging usage.
-                    </span>
-                  );
-                })()}
+              {/* Category Selector */}
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontWeight: 600, marginBottom: '0.4rem', display: 'block', fontSize: '0.85rem' }}>Log Entry Category</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className={`btn ${currentUsage.type !== 'Miscellaneous' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '0.45rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    onClick={() => setCurrentUsage({ ...currentUsage, type: 'Material' })}
+                  >
+                    <Package size={15} /> Standard Material
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${currentUsage.type === 'Miscellaneous' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '0.45rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    onClick={() => setCurrentUsage({ ...currentUsage, type: 'Miscellaneous', unit: currentUsage.unit || 'Lumpsum', quantity: currentUsage.quantity || 1 })}
+                  >
+                    <Plus size={15} /> Miscellaneous Value
+                  </button>
+                </div>
               </div>
 
-              {/* Batch Autofill Section */}
-              {(() => {
-                const matched = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').trim().toLowerCase());
-                let activeBatches = matched ? (matched.batches || []).filter(b => b.quantityAvailable > 0) : [];
-                if (matched && activeBatches.length === 0 && matched.stock > 0) {
-                  activeBatches = [{
-                    purchaseRate: matched.purchaseAmount,
-                    quantityAvailable: matched.stock,
-                    purchaseDate: 'Historic'
-                  }];
-                }
-                if (activeBatches.length > 0) {
-                  return (
-                    <div className="form-group">
-                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Select Available Batch Rate to Auto-Fill</label>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {activeBatches.map((b, idx) => {
-                          const isSelected = selectedBatchIndex === idx;
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ 
-                                fontSize: '0.78rem', 
-                                padding: '0.35rem 0.6rem', 
-                                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--border-color)', 
-                                borderRadius: 'var(--border-radius-sm)',
-                                backgroundColor: isSelected ? 'var(--color-primary-light)' : '',
-                                color: isSelected ? 'var(--color-primary)' : '',
-                                fontWeight: isSelected ? '600' : 'normal'
-                              }}
-                              onClick={() => {
-                                setSelectedBatchIndex(idx);
-                                setCurrentUsage({
-                                  ...currentUsage,
-                                  distributionRate: b.purchaseRate,
-                                  quantity: Math.min(Number(currentUsage.quantity) || b.quantityAvailable, b.quantityAvailable)
-                                });
-                              }}
-                            >
-                              ₹{b.purchaseRate} ({b.quantityAvailable} {matched.unit} left)
-                            </button>
-                          );
-                        })}
-                      </div>
+              {currentUsage.type === 'Miscellaneous' ? (
+                <>
+                  <div className="form-group">
+                    <label>Miscellaneous Item / Description</label>
+                    <input 
+                      required 
+                      type="text" 
+                      value={currentUsage.material} 
+                      onChange={e => setCurrentUsage({ ...currentUsage, material: e.target.value })} 
+                      placeholder="e.g. Scaffolding rental, Freight, Hardware, Extra Site Cost..." 
+                    />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                      Add a custom miscellaneous expense/value managed by the builder or site owner.
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Site / Project</label>
+                    <input 
+                      required 
+                      type="text" 
+                      list="materials-project-list"
+                      value={currentUsage.project} 
+                      onChange={e => setCurrentUsage({...currentUsage, project: e.target.value})} 
+                      placeholder="Type or select project..." 
+                    />
+                    <datalist id="materials-project-list">
+                      {projects.map((p, i) => <option key={i} value={p.name} />)}
+                    </datalist>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Miscellaneous Value / Cost (₹)</label>
+                    <input 
+                      required 
+                      type="number" 
+                      min="0" 
+                      value={currentUsage.distributionRate} 
+                      onChange={e => setCurrentUsage({...currentUsage, distributionRate: e.target.value})} 
+                      placeholder="e.g. 1500" 
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label>Quantity</label>
+                      <input 
+                        type="number" 
+                        min="1" 
+                        value={currentUsage.quantity || 1} 
+                        onChange={e => setCurrentUsage({...currentUsage, quantity: e.target.value})} 
+                        placeholder="1" 
+                      />
                     </div>
-                  );
-                }
-                return null;
-              })()}
+                    <div>
+                      <label>Unit</label>
+                      <input 
+                        type="text" 
+                        value={currentUsage.unit || 'Lumpsum'} 
+                        onChange={e => setCurrentUsage({...currentUsage, unit: e.target.value})} 
+                        placeholder="e.g. Lumpsum, Units, Trips" 
+                      />
+                    </div>
+                  </div>
 
-              <div className="form-group">
-                <label>Site / Project</label>
-                <input 
-                  required 
-                  type="text" 
-                  list="materials-project-list"
-                  value={currentUsage.project} 
-                  onChange={e => setCurrentUsage({...currentUsage, project: e.target.value})} 
-                  placeholder="Type or select project..." 
-                />
-                <datalist id="materials-project-list">
-                  {projects.map((p, i) => <option key={i} value={p.name} />)}
-                </datalist>
-              </div>
-              <div className="form-group">
-                <label>Quantity Distributed</label>
-                <input required type="number" min="0" value={currentUsage.quantity} onChange={e => setCurrentUsage({...currentUsage, quantity: e.target.value})} placeholder="e.g. 50" />
-              </div>
-              <div className="form-group">
-                <label>Distribution Rate / Rate (₹)</label>
-                <input required type="number" min="0" value={currentUsage.distributionRate} onChange={e => setCurrentUsage({...currentUsage, distributionRate: e.target.value})} placeholder="e.g. 360" />
-              </div>
-              <div className="form-group">
-                <label>Date of Distribution</label>
-                <input required type="date" value={currentUsage.date} onChange={e => setCurrentUsage({...currentUsage, date: e.target.value})} />
-              </div>
+                  <div className="form-group">
+                    <label>Date of Entry</label>
+                    <input required type="date" value={currentUsage.date} onChange={e => setCurrentUsage({...currentUsage, date: e.target.value})} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>Material Name</label>
+                    <input 
+                      required 
+                      type="text" 
+                      list="material-names-list"
+                      value={currentUsage.material} 
+                      onChange={e => {
+                        const matName = e.target.value;
+                        const mat = materials.find(m => m.name.toLowerCase() === matName.toLowerCase());
+                        setCurrentUsage({
+                          ...currentUsage, 
+                          material: matName, 
+                          unit: mat ? mat.unit : currentUsage.unit, 
+                          distributionRate: mat ? mat.purchaseAmount : currentUsage.distributionRate
+                        });
+                      }} 
+                      placeholder="Type or select material..." 
+                    />
+                    <datalist id="material-names-list">
+                      {materials.map((m, i) => (
+                        <option key={i} value={m.name}>Stock: {m.stock} {m.unit} | Rate: ₹{m.purchaseAmount}</option>
+                      ))}
+                    </datalist>
+                    {currentUsage.material && (() => {
+                      const matched = materials.find(m => m.name.toLowerCase() === currentUsage.material.trim().toLowerCase());
+                      return matched ? (
+                        <span style={{ fontSize: '0.8rem', color: matched.stock > 0 ? '#10b981' : '#ef4444', marginTop: '0.35rem', display: 'block', fontWeight: 600 }}>
+                          Available Stock: {matched.stock} {matched.unit} (Latest Rate: ₹{matched.purchaseAmount})
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#f59e0b', marginTop: '0.35rem', display: 'block' }}>
+                          Material not found in stock. Switch to "Miscellaneous Value" above to log as custom/misc expense.
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Batch Autofill Section */}
+                  {(() => {
+                    const matched = materials.find(m => m.name.toLowerCase() === (currentUsage.material || '').trim().toLowerCase());
+                    let activeBatches = matched ? (matched.batches || []).filter(b => b.quantityAvailable > 0) : [];
+                    if (matched && activeBatches.length === 0 && matched.stock > 0) {
+                      activeBatches = [{
+                        purchaseRate: matched.purchaseAmount,
+                        quantityAvailable: matched.stock,
+                        purchaseDate: 'Historic'
+                      }];
+                    }
+                    if (activeBatches.length > 0) {
+                      return (
+                        <div className="form-group">
+                          <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Select Available Batch Rate to Auto-Fill</label>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {activeBatches.map((b, idx) => {
+                              const isSelected = selectedBatchIndex === idx;
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ 
+                                    fontSize: '0.78rem', 
+                                    padding: '0.35rem 0.6rem', 
+                                    border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--border-color)', 
+                                    borderRadius: 'var(--border-radius-sm)',
+                                    backgroundColor: isSelected ? 'var(--color-primary-light)' : '',
+                                    color: isSelected ? 'var(--color-primary)' : '',
+                                    fontWeight: isSelected ? '600' : 'normal'
+                                  }}
+                                  onClick={() => {
+                                    setSelectedBatchIndex(idx);
+                                    setCurrentUsage({
+                                      ...currentUsage,
+                                      distributionRate: b.purchaseRate,
+                                      quantity: Math.min(Number(currentUsage.quantity) || b.quantityAvailable, b.quantityAvailable)
+                                    });
+                                  }}
+                                >
+                                  ₹{b.purchaseRate} ({b.quantityAvailable} {matched.unit} left)
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  <div className="form-group">
+                    <label>Site / Project</label>
+                    <input 
+                      required 
+                      type="text" 
+                      list="materials-project-list"
+                      value={currentUsage.project} 
+                      onChange={e => setCurrentUsage({...currentUsage, project: e.target.value})} 
+                      placeholder="Type or select project..." 
+                    />
+                    <datalist id="materials-project-list">
+                      {projects.map((p, i) => <option key={i} value={p.name} />)}
+                    </datalist>
+                  </div>
+                  <div className="form-group">
+                    <label>Quantity Distributed</label>
+                    <input required type="number" min="0" value={currentUsage.quantity} onChange={e => setCurrentUsage({...currentUsage, quantity: e.target.value})} placeholder="e.g. 50" />
+                  </div>
+                  <div className="form-group">
+                    <label>Distribution Rate / Rate (₹)</label>
+                    <input required type="number" min="0" value={currentUsage.distributionRate} onChange={e => setCurrentUsage({...currentUsage, distributionRate: e.target.value})} placeholder="e.g. 360" />
+                  </div>
+                  <div className="form-group">
+                    <label>Date of Distribution</label>
+                    <input required type="date" value={currentUsage.date} onChange={e => setCurrentUsage({...currentUsage, date: e.target.value})} />
+                  </div>
+                </>
+              )}
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => { setShowAddUsage(false); setShowEditUsage(false); }}>Cancel</button>
                 <button type="submit" className="btn btn-primary">{showEditUsage ? 'Update Log' : 'Save Log'}</button>

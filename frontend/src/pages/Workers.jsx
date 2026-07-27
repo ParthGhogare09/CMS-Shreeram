@@ -34,6 +34,25 @@ const formatCurrency = (amount) => `₹${amount.toLocaleString('en-IN')}`;
 const getAmountPaid = (log) => log.amountPaid !== undefined ? log.amountPaid : (log.paymentStatus === 'Paid' ? log.wage : 0);
 const getAmountPending = (log) => Math.max(0, log.wage - getAmountPaid(log));
 
+const parseDaysNum = (wt) => {
+  if (wt === undefined || wt === null || wt === '') return 1;
+  if (typeof wt === 'number') return wt;
+  const str = String(wt).trim();
+  if (str === 'Full Day' || str === '1') return 1;
+  if (str === 'Half Day' || str === '0.5') return 0.5;
+  if (str === 'Overtime' || str === '1.5') return 1.5;
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 1 : parsed;
+};
+
+const formatDaysLabel = (wt) => {
+  const num = parseDaysNum(wt);
+  if (num === 1) return '1 Day';
+  if (num === 0.5) return '0.5 Day (Half)';
+  if (num === 1.5) return '1.5 Days (OT)';
+  return `${num} Day${num === 1 ? '' : 's'}`;
+};
+
 const Workers = () => {
   const [activeTab, setActiveTab] = useState('master');
   
@@ -160,7 +179,8 @@ const Workers = () => {
     }
 
     // === ALLOCATION CONFLICT CHECK ===
-    // Only validate when adding a new log (not editing)
+    const newDays = parseDaysNum(currentLog.workTime);
+
     if (!showEditLog) {
       const existingOnDate = dailyLogs.filter(l =>
         (l.workerId || l.worker)?.toString() === (worker.id || worker._id).toString() &&
@@ -177,26 +197,16 @@ const Workers = () => {
           return;
         }
 
-        // Rule 2: Worker fully occupied at another project (Full Day or Overtime)
-        const fullDayLog = existingOnDate.find(l => l.workTime === 'Full Day' || l.workTime === 'Overtime');
-        if (fullDayLog) {
-          alert(`${worker.name} is already occupied at "${fullDayLog.project}" with a ${fullDayLog.workTime} on ${currentLog.date}. Cannot allocate to another project.`);
-          return;
-        }
-
-        // Rule 3: Trying to add Full Day/Overtime when worker already has a Half Day elsewhere
-        if (currentLog.workTime === 'Full Day' || currentLog.workTime === 'Overtime') {
-          const halfDayLog = existingOnDate[0];
-          alert(`${worker.name} already has a Half Day allocation at "${halfDayLog.project}" on ${currentLog.date}. Cannot add a Full Day entry.`);
+        const existingDays = existingOnDate.reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
+        if (existingDays + newDays > 2.5) {
+          alert(`${worker.name} already has ${existingDays} day(s) allocated on ${currentLog.date}. Cannot add an entry for ${newDays} day(s).`);
           return;
         }
       }
     }
     // === END CONFLICT CHECK ===
 
-    let wageMultiplier = 1;
-    if (currentLog.workTime === 'Half Day') wageMultiplier = 0.5;
-    if (currentLog.workTime === 'Overtime') wageMultiplier = 1.5;
+    let wageMultiplier = newDays;
     if (currentLog.status === 'Absent' || currentLog.status === 'Leave') wageMultiplier = 0;
 
     const rate = worker.dailyWage || worker.wage;
@@ -457,7 +467,7 @@ const Workers = () => {
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                 onClick={() => {
-                  const totalDaysAll = filteredLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + (l.workTime === 'Full Day' ? 1 : l.workTime === 'Half Day' ? 0.5 : l.workTime === 'Overtime' ? 1.5 : 0), 0);
+                  const totalDaysAll = filteredLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
                   const totalWageAll = filteredLogs.reduce((s, l) => s + (l.wage || l.wageAtTime || 0), 0);
                   const totalPaidAll = filteredLogs.reduce((s, l) => s + getAmountPaid(l), 0);
                   const totalPendingAll = filteredLogs.reduce((s, l) => s + getAmountPending(l), 0);
@@ -563,7 +573,7 @@ const Workers = () => {
                       {log.status}
                     </span>
                   </td>
-                  <td data-label="Time">{log.workTime}</td>
+                  <td data-label="Time">{formatDaysLabel(log.workTime)}</td>
                   <td data-label="Rate">{formatCurrency(log.rate)}</td>
                   <td data-label="Calculated Wage" style={{ fontWeight: 600 }}>{formatCurrency(log.wage)}</td>
                   <td data-label="Paid" style={{ color: 'var(--color-success)', fontWeight: 500 }}>{formatCurrency(getAmountPaid(log))}</td>
@@ -627,7 +637,7 @@ const Workers = () => {
     };
 
     const workerLogs = selectedWorker ? dailyLogs.filter(l => (l.workerId || '').toString() === (selectedWorker.id || selectedWorker._id || '').toString()) : [];
-    const totalDays = workerLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + (l.workTime === 'Full Day' ? 1 : l.workTime === 'Half Day' ? 0.5 : l.workTime === 'Overtime' ? 1.5 : 0), 0);
+    const totalDays = workerLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
     const totalEarnings = workerLogs.reduce((sum, l) => sum + l.wage, 0);
     const wagePaid = workerLogs.reduce((sum, l) => sum + getAmountPaid(l), 0);
     const remainingWage = workerLogs.reduce((sum, l) => sum + getAmountPending(l), 0);
@@ -761,7 +771,7 @@ const Workers = () => {
                     <tr key={log.id}>
                       <td data-label="Date">{formatDate(log.date)}</td>
                       <td data-label="Project">{log.project}</td>
-                      <td data-label="Time Worked">{log.workTime}</td>
+                      <td data-label="Time Worked">{formatDaysLabel(log.workTime)}</td>
                       <td data-label="Wage" style={{ fontWeight: 600 }}>{formatCurrency(log.wage)}</td>
                       <td data-label="Paid" style={{ color: 'var(--color-success)' }}>{formatCurrency(getAmountPaid(log))}</td>
                       <td data-label="Pending" style={{ color: 'var(--color-danger)' }}>{formatCurrency(getAmountPending(log))}</td>
@@ -804,7 +814,7 @@ const Workers = () => {
         ) 
       : [];
     
-    const totalDays = projectLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + (l.workTime === 'Full Day' ? 1 : l.workTime === 'Half Day' ? 0.5 : l.workTime === 'Overtime' ? 1.5 : 0), 0);
+    const totalDays = projectLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
     const uniqueWorkers = new Set(projectLogs.map(l => l.workerId)).size;
     const totalWage = projectLogs.reduce((sum, log) => sum + log.wage, 0);
     const wagePaid = projectLogs.reduce((sum, log) => sum + getAmountPaid(log), 0);
@@ -925,7 +935,7 @@ const Workers = () => {
                       <td data-label="Worker">
                         <div style={{ fontWeight: 600 }}>{log.name} <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>({formatWorkerId(log.workerId)})</span></div>
                       </td>
-                      <td data-label="Time Worked">{log.workTime}</td>
+                      <td data-label="Time Worked">{formatDaysLabel(log.workTime)}</td>
                       <td data-label="Wage Incurred" style={{ fontWeight: 600 }}>{formatCurrency(log.wage)}</td>
                       <td data-label="Paid" style={{ color: 'var(--color-success)' }}>{formatCurrency(getAmountPaid(log))}</td>
                       <td data-label="Pending" style={{ color: 'var(--color-danger)' }}>{formatCurrency(getAmountPending(log))}</td>
@@ -988,7 +998,7 @@ const Workers = () => {
         };
       }
       if (log.status === 'Present') {
-        summaryMap[log.workerId].daysWorked += (log.workTime === 'Full Day' ? 1 : log.workTime === 'Half Day' ? 0.5 : log.workTime === 'Overtime' ? 1.5 : 0);
+        summaryMap[log.workerId].daysWorked += parseDaysNum(log.workTime);
       }
       summaryMap[log.workerId].totalWage += log.wage;
       summaryMap[log.workerId].wagePaid += getAmountPaid(log);
@@ -1340,16 +1350,70 @@ const Workers = () => {
                   <option value="Absent">Absent</option>
                 </select>
               </div>
-              {currentLog.status === 'Present' && (
-                <div className="form-group">
-                  <label>Work Time</label>
-                  <select value={currentLog.workTime} onChange={e => setCurrentLog({...currentLog, workTime: e.target.value})}>
-                    <option value="Full Day">Full Day</option>
-                    <option value="Half Day">Half Day</option>
-                    <option value="Overtime">Overtime</option>
-                  </select>
-                </div>
-              )}
+              {currentLog.status === 'Present' && (() => {
+                const selectedW = workers.find(w => 
+                  (currentLog.workerId && (w.id || w._id).toString() === currentLog.workerId.toString()) ||
+                  (currentLog.workerName && w.name.toLowerCase() === currentLog.workerName.trim().toLowerCase())
+                );
+                const dailyWage = selectedW ? (selectedW.dailyWage || selectedW.wage || 0) : 0;
+                const numDays = parseDaysNum(currentLog.workTime);
+                const calculatedWage = dailyWage * numDays;
+
+                return (
+                  <div className="form-group">
+                    <label>Work Duration / Days (Numeric)</label>
+                    <input 
+                      required 
+                      type="number" 
+                      step="any" 
+                      min="0" 
+                      max="10" 
+                      value={currentLog.workTime} 
+                      onChange={e => setCurrentLog({ ...currentLog, workTime: e.target.value })} 
+                      placeholder="e.g. 1 (Full Day), 0.5 (Half Day), 0.8, 1.2" 
+                    />
+                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className={`btn ${parseDaysNum(currentLog.workTime) === 0.5 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                        onClick={() => setCurrentLog({ ...currentLog, workTime: '0.5' })}
+                      >
+                        0.5 (Half)
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${parseDaysNum(currentLog.workTime) === 0.8 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                        onClick={() => setCurrentLog({ ...currentLog, workTime: '0.8' })}
+                      >
+                        0.8
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${parseDaysNum(currentLog.workTime) === 1 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                        onClick={() => setCurrentLog({ ...currentLog, workTime: '1' })}
+                      >
+                        1.0 (Full)
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${parseDaysNum(currentLog.workTime) === 1.5 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                        onClick={() => setCurrentLog({ ...currentLog, workTime: '1.5' })}
+                      >
+                        1.5 (OT)
+                      </button>
+                    </div>
+                    {dailyWage > 0 && (
+                      <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', marginTop: '0.35rem', display: 'block', fontWeight: 600 }}>
+                        Calculated Wage: ₹{calculatedWage.toLocaleString('en-IN')} ({numDays} day(s) × ₹{dailyWage}/day)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="form-group">
                 <label>Payment Status</label>
                 <select value={currentLog.paymentStatus} onChange={e => setCurrentLog({...currentLog, paymentStatus: e.target.value})}>

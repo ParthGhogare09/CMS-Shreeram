@@ -615,8 +615,38 @@ const ProjectDetails = () => {
                     <input type="text" required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} placeholder="e.g. Mason" />
                   </div>
                   <div className="form-group">
-                    <label>Time Worked (Days)</label>
-                    <input type="number" min="0" step="0.5" required value={formData.days} onChange={e => setFormData({...formData, days: e.target.value})} placeholder="e.g. 1" />
+                    <label>Time Worked / Days (Numeric)</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      step="any" 
+                      required 
+                      value={formData.days} 
+                      onChange={e => {
+                        const daysVal = e.target.value;
+                        const w = workers ? workers.find(work => work.name.toLowerCase() === (formData.name || '').trim().toLowerCase()) : null;
+                        const rate = w ? (w.dailyWage || w.wage) : null;
+                        const computedCost = (rate !== null && daysVal !== '') ? Number(rate) * Number(daysVal) : formData.cost;
+                        setFormData({
+                          ...formData,
+                          days: daysVal,
+                          cost: computedCost
+                        });
+                      }} 
+                      placeholder="e.g. 1 (Full Day), 0.5 (Half Day), 0.8, 1.2" 
+                    />
+                    {(() => {
+                      const w = workers ? workers.find(work => work.name.toLowerCase() === (formData.name || '').trim().toLowerCase()) : null;
+                      const rate = w ? (w.dailyWage || w.wage) : 0;
+                      if (rate > 0 && formData.days) {
+                        return (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', marginTop: '0.25rem', display: 'block', fontWeight: 600 }}>
+                            Calculated Wage: ₹{(rate * Number(formData.days)).toLocaleString('en-IN')} ({formData.days} day(s) × ₹{rate}/day)
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div className="form-group">
                     <label>Wage Incurred (₹)</label>

@@ -295,9 +295,14 @@ export const CMSProvider = ({ children }) => {
       console.warn('Backend createWorkerLog failed, updating local mock dataset:', err.message);
       const worker = MOCK_WORKERS.find(w => (w.id || w._id).toString() === logData.workerId.toString());
       if (worker) {
-        let multiplier = 1;
-        if (logData.workTime === 'Half Day') multiplier = 0.5;
-        if (logData.workTime === 'Overtime') multiplier = 1.5;
+        const getMult = (wt) => {
+          if (wt === 'Full Day' || wt === '1') return 1;
+          if (wt === 'Half Day' || wt === '0.5') return 0.5;
+          if (wt === 'Overtime' || wt === '1.5') return 1.5;
+          const num = parseFloat(wt);
+          return isNaN(num) ? 1 : num;
+        };
+        let multiplier = getMult(logData.workTime);
         if (logData.status === 'Absent' || logData.status === 'Leave') multiplier = 0;
         const wage = worker.dailyWage || worker.wage || 0;
         const finalWage = wage * multiplier;
@@ -332,9 +337,14 @@ export const CMSProvider = ({ children }) => {
       if (idx !== -1) {
         const worker = MOCK_WORKERS.find(w => (w.id || w._id).toString() === logData.workerId.toString());
         const wage = worker ? (worker.dailyWage || worker.wage || 0) : MOCK_DAILY_LOGS[idx].rate;
-        let multiplier = 1;
-        if (logData.workTime === 'Half Day') multiplier = 0.5;
-        if (logData.workTime === 'Overtime') multiplier = 1.5;
+        const getMult = (wt) => {
+          if (wt === 'Full Day' || wt === '1') return 1;
+          if (wt === 'Half Day' || wt === '0.5') return 0.5;
+          if (wt === 'Overtime' || wt === '1.5') return 1.5;
+          const num = parseFloat(wt);
+          return isNaN(num) ? 1 : num;
+        };
+        let multiplier = getMult(logData.workTime);
         if (logData.status === 'Absent' || logData.status === 'Leave') multiplier = 0;
         const finalWage = wage * multiplier;
 
@@ -410,9 +420,44 @@ export const CMSProvider = ({ children }) => {
       await fetchData(false);
     } catch (err) {
       console.warn('Backend logMaterialUsage failed, updating local mock dataset:', err.message);
-      const qty = Number(usageData.quantity) || 0;
+      const isMisc = usageData.type === 'Miscellaneous' || usageData.isMisc;
+      const qty = Number(usageData.quantity) || 1;
       const dRate = Number(usageData.distributionRate) || 0;
       const date = usageData.date || new Date().toISOString().split('T')[0];
+
+      if (isMisc) {
+        if (usageData.id) {
+          const oldUsage = MOCK_MATERIAL_USAGE.find(u => (u.id || u._id || '').toString() === usageData.id.toString());
+          if (oldUsage) {
+            Object.assign(oldUsage, { ...usageData, type: 'Miscellaneous', unit: usageData.unit || 'Lumpsum' });
+          }
+        } else {
+          MOCK_MATERIAL_USAGE.push({
+            id: MOCK_MATERIAL_USAGE.length + 1,
+            material: usageData.material,
+            project: usageData.project,
+            quantity: qty,
+            unit: usageData.unit || 'Lumpsum',
+            distributionRate: dRate,
+            purchaseCost: 0,
+            batchesConsumed: 'N/A',
+            purchaseRateInfo: 'Misc Expense',
+            type: 'Miscellaneous',
+            date: date
+          });
+          MOCK_FINANCES.push({
+            id: MOCK_FINANCES.length + 1,
+            type: 'Expense',
+            amount: qty * dRate,
+            project: usageData.project,
+            paymentType: 'Cash',
+            date: date,
+            category: 'Miscellaneous'
+          });
+        }
+        await fetchData(false);
+        return;
+      }
 
       if (usageData.id) {
         const oldUsage = MOCK_MATERIAL_USAGE.find(u => (u.id || u._id || '').toString() === usageData.id.toString());

@@ -156,7 +156,7 @@ const getSummaryData = (data, fileName) => {
       const status = String(row['Attendance Status'] || '');
       const workTime = String(row['Work Time'] || '');
       if (status === 'Present') {
-        totalDays += workTime === 'Full Day' ? 1 : workTime === 'Half Day' ? 0.5 : workTime === 'Overtime' ? 1.5 : 0;
+        totalDays += workTime === 'Full Day' ? 1 : workTime === 'Half Day' ? 0.5 : workTime === 'Overtime' ? 1.5 : (parseFloat(workTime) || 0);
       }
       totalWage    += Number(String(row['Calculated Wage (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
       totalPaid    += Number(String(row['Paid (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
