@@ -658,29 +658,35 @@ router.post('/workers/logs', async (req, res) => {
         });
       }
 
-      // Rule 2: Worker is fully occupied (Full Day or Overtime at another project)
-      const occupiedLog = existingLogs.find(l => l.workTime === 'Full Day' || l.workTime === 'Overtime');
-      if (occupiedLog) {
-        const occupiedProject = occupiedLog.project ? occupiedLog.project.name : 'another site';
-        return res.status(409).json({
-          error: `${worker.name} is already occupied at "${occupiedProject}" with a ${occupiedLog.workTime} on ${date}. Cannot allocate to another project.`
-        });
-      }
+      const getDays = (wt) => {
+        if (wt === 'Full Day' || wt === '1') return 1;
+        if (wt === 'Half Day' || wt === '0.5') return 0.5;
+        if (wt === 'Overtime' || wt === '1.5') return 1.5;
+        const num = parseFloat(wt);
+        return isNaN(num) ? 1 : num;
+      };
 
-      // Rule 3: If the new entry is Full Day/Overtime but worker already has a Half Day somewhere
-      if ((workTime === 'Full Day' || workTime === 'Overtime') && existingLogs.length > 0) {
-        const existingProject = existingLogs[0].project ? existingLogs[0].project.name : 'another site';
+      const newDays = getDays(workTime);
+      const existingTotalDays = existingLogs.reduce((sum, l) => sum + getDays(l.workTime), 0);
+
+      if (existingTotalDays + newDays > 2.5) {
         return res.status(409).json({
-          error: `${worker.name} already has a Half Day allocation at "${existingProject}" on ${date}. Cannot add a Full Day entry.`
+          error: `${worker.name} already has ${existingTotalDays} day(s) allocated on ${date}. Cannot add an entry for ${newDays} day(s).`
         });
       }
     }
     // === END CONFLICT CHECK ===
 
     // Wage calculation logic
-    let multiplier = 1;
-    if (workTime === 'Half Day') multiplier = 0.5;
-    if (workTime === 'Overtime') multiplier = 1.5;
+    const getDays = (wt) => {
+      if (wt === 'Full Day' || wt === '1') return 1;
+      if (wt === 'Half Day' || wt === '0.5') return 0.5;
+      if (wt === 'Overtime' || wt === '1.5') return 1.5;
+      const num = parseFloat(wt);
+      return isNaN(num) ? 1 : num;
+    };
+
+    let multiplier = getDays(workTime);
     if (status === 'Absent' || status === 'Leave') multiplier = 0;
     const wage = worker.dailyWage * multiplier;
 
@@ -744,13 +750,18 @@ router.put('/workers/logs/:id', async (req, res) => {
       return res.status(400).json({ error: 'A valid site/project must be selected before logging worker attendance.' });
     }
 
-    let multiplier = 1;
-    if (workTime === 'Half Day') multiplier = 0.5;
-    if (workTime === 'Overtime') multiplier = 1.5;
-    if (status === 'Absent' || status === 'Leave') multiplier = 0;
+    let multiplier = (wt) => {
+      if (wt === 'Full Day' || wt === '1') return 1;
+      if (wt === 'Half Day' || wt === '0.5') return 0.5;
+      if (wt === 'Overtime' || wt === '1.5') return 1.5;
+      const num = parseFloat(wt);
+      return isNaN(num) ? 1 : num;
+    };
+    let multVal = multiplier(workTime);
+    if (status === 'Absent' || status === 'Leave') multVal = 0;
 
     const rate = log.worker ? log.worker.dailyWage : log.wageAtTime;
-    const wage = rate * multiplier;
+    const wage = rate * multVal;
 
     const paidAmt = amountPaid === '' || amountPaid === undefined ? (paymentStatus === 'Paid' ? wage : 0) : Number(amountPaid);
 
@@ -1129,16 +1140,17 @@ router.get('/materials/usage', async (req, res) => {
     const logs = await MaterialUsage.find({}).populate('material').populate('project');
     const mappedLogs = logs.map(log => ({
       id: log._id,
-      material: log.material ? log.material.name : 'Unknown',
+      material: log.type === 'Miscellaneous' ? (log.miscName || 'Miscellaneous Item') : (log.material ? log.material.name : (log.miscName || 'Unknown')),
       materialId: log.material ? log.material._id : null,
       project: log.project ? log.project.name : 'Unknown',
       projectId: log.project ? log.project._id : null,
       quantity: log.quantity,
-      unit: log.material ? log.material.unit : 'Units',
+      unit: log.type === 'Miscellaneous' ? (log.unit || 'Lumpsum') : (log.material ? log.material.unit : (log.unit || 'Units')),
       distributionRate: log.distributionRate,
-      purchaseRateInfo: log.purchaseRateInfo || (log.material ? `₹${log.material.purchaseAmount}` : 'N/A'),
-      purchaseCost: log.purchaseCost || (log.quantity * (log.material ? log.material.purchaseAmount : 0)),
-      batchesConsumed: log.batchesConsumed || 'Batch 1',
+      purchaseRateInfo: log.type === 'Miscellaneous' ? 'Misc Expense' : (log.purchaseRateInfo || (log.material ? `₹${log.material.purchaseAmount}` : 'N/A')),
+      purchaseCost: log.type === 'Miscellaneous' ? 0 : (log.purchaseCost || (log.quantity * (log.material ? log.material.purchaseAmount : 0))),
+      batchesConsumed: log.type === 'Miscellaneous' ? 'N/A' : (log.batchesConsumed || 'Batch 1'),
+      type: log.type || 'Material',
       date: log.date
     }));
     res.json(mappedLogs);
@@ -1147,13 +1159,79 @@ router.get('/materials/usage', async (req, res) => {
   }
 });
 
-// Log material usage (deducts stock)
+// Log material usage (deducts stock for material, or records misc expense)
 router.post('/materials/usage', async (req, res) => {
   try {
-    const { id, material, project, quantity, distributionRate, selectedBatchIndex, date } = req.body;
-    const qty = Number(quantity);
-    const dRate = Number(distributionRate);
+    const { id, material, project, quantity, distributionRate, selectedBatchIndex, date, type, unit, isMisc } = req.body;
+    const entryType = type || (isMisc ? 'Miscellaneous' : 'Material');
+    const qty = Number(quantity) || 1;
+    const dRate = Number(distributionRate) || 0;
     const batchIdx = (selectedBatchIndex !== undefined && selectedBatchIndex !== null) ? Number(selectedBatchIndex) : null;
+
+    let projObj = await resolveProject(project);
+    if (!projObj) return res.status(404).json({ error: 'Project not found' });
+
+    if (entryType === 'Miscellaneous') {
+      const miscUnit = unit || 'Lumpsum';
+      const miscNameStr = material || 'Miscellaneous Item';
+
+      let usageLog;
+      if (id && mongoose.Types.ObjectId.isValid(id)) {
+        usageLog = await MaterialUsage.findById(id);
+      }
+
+      if (usageLog) {
+        usageLog.type = 'Miscellaneous';
+        usageLog.miscName = miscNameStr;
+        usageLog.project = projObj._id;
+        usageLog.quantity = qty;
+        usageLog.unit = miscUnit;
+        usageLog.distributionRate = dRate;
+        usageLog.purchaseRateInfo = 'Misc Expense';
+        usageLog.purchaseCost = 0;
+        usageLog.batchesConsumed = 'N/A';
+        usageLog.date = date;
+        await usageLog.save();
+      } else {
+        usageLog = new MaterialUsage({
+          project: projObj._id,
+          type: 'Miscellaneous',
+          miscName: miscNameStr,
+          quantity: qty,
+          unit: miscUnit,
+          distributionRate: dRate,
+          purchaseRateInfo: 'Misc Expense',
+          purchaseCost: 0,
+          batchesConsumed: 'N/A',
+          date: date
+        });
+        await usageLog.save();
+
+        const financeLog = new Finance({
+          project: projObj._id,
+          amount: qty * dRate,
+          type: 'Expense',
+          category: 'Miscellaneous',
+          description: `Miscellaneous material/site expense: ${miscNameStr}`,
+          date: date
+        });
+        await financeLog.save();
+      }
+
+      return res.json({
+        id: usageLog._id,
+        material: miscNameStr,
+        project: projObj.name,
+        quantity: qty,
+        unit: miscUnit,
+        distributionRate: dRate,
+        purchaseRateInfo: 'Misc Expense',
+        purchaseCost: 0,
+        batchesConsumed: 'N/A',
+        type: 'Miscellaneous',
+        date
+      });
+    }
 
     let matObj = await resolveMaterial(material);
     if (!matObj) return res.status(404).json({ error: 'Material not found' });
@@ -1163,9 +1241,6 @@ router.post('/materials/usage', async (req, res) => {
     if (!id && qty > matObj.stock) {
       return res.status(400).json({ error: `Insufficient stock for '${matObj.name}'. Available: ${matObj.stock} ${matObj.unit}, requested: ${qty}.` });
     }
-
-    let projObj = await resolveProject(project);
-    if (!projObj) return res.status(404).json({ error: 'Project not found' });
 
     let usageLog;
     if (id && mongoose.Types.ObjectId.isValid(id)) {
@@ -1182,7 +1257,9 @@ router.post('/materials/usage', async (req, res) => {
 
       usageLog.material = matObj._id;
       usageLog.project = projObj._id;
+      usageLog.type = 'Material';
       usageLog.quantity = qty;
+      usageLog.unit = unit || matObj.unit;
       usageLog.distributionRate = dRate;
       usageLog.date = date;
 
@@ -1224,7 +1301,9 @@ router.post('/materials/usage', async (req, res) => {
       usageLog = new MaterialUsage({
         material: matObj._id,
         project: projObj._id,
+        type: 'Material',
         quantity: qty,
+        unit: unit || matObj.unit,
         distributionRate: dRate,
         purchaseRateInfo: rateInfoStr,
         purchaseCost: computedPurchaseCost,
@@ -1250,11 +1329,12 @@ router.post('/materials/usage', async (req, res) => {
       material: matObj.name,
       project: projObj.name,
       quantity: qty,
-      unit: matObj.unit,
+      unit: unit || matObj.unit,
       distributionRate: dRate,
       purchaseRateInfo: usageLog.purchaseRateInfo,
       purchaseCost: usageLog.purchaseCost,
       batchesConsumed: usageLog.batchesConsumed,
+      type: 'Material',
       date
     });
   } catch (error) {

@@ -13,8 +13,7 @@ const WorkerLogSchema = new mongoose.Schema({
   },
   workTime: { 
     type: String, 
-    enum: ['Full Day', 'Half Day', 'Overtime', '-'], 
-    default: 'Full Day' 
+    default: '1' 
   },
   paymentStatus: { 
     type: String, 
