@@ -13,6 +13,7 @@ const FinanceSchema = new mongoose.Schema({
   description: { type: String, trim: true },
   date: { type: String, required: true }, // Format: YYYY-MM-DD
   days: { type: Number }, // For Rental duration or specific log data
+  addedBy: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
 

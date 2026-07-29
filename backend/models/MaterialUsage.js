@@ -12,6 +12,7 @@ const MaterialUsageSchema = new mongoose.Schema({
   purchaseCost: { type: Number, default: 0 }, // Total cost of consumed quantity based on batch rates
   batchesConsumed: { type: String, default: '' }, // e.g. "Batch 1" or "Batch 1, Batch 2"
   date: { type: String, required: true }, // Format: YYYY-MM-DD
+  addedBy: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
 

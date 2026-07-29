@@ -21,6 +21,7 @@ const WorkerLogSchema = new mongoose.Schema({
     default: 'Pending' 
   },
   amountPaid: { type: Number, default: 0 },
+  addedBy: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
 

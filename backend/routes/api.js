@@ -235,7 +235,8 @@ router.get('/projects', async (req, res) => {
         startDate: p.startDate ? p.startDate.toISOString().split('T')[0] : '',
         endDate: p.endDate ? p.endDate.toISOString().split('T')[0] : '',
         collected,
-        spent
+        spent,
+        addedBy: p.addedBy || ''
       });
     }
 
@@ -247,14 +248,15 @@ router.get('/projects', async (req, res) => {
 
 router.post('/projects', async (req, res) => {
   try {
-    const { name, client, budget, location, startDate, endDate } = req.body;
+    const { name, client, budget, location, startDate, endDate, addedBy } = req.body;
     const newProj = new Project({
       name,
       clientName: client,
       budget: Number(budget) || 0,
       location,
       startDate: startDate || null,
-      endDate: endDate || null
+      endDate: endDate || null,
+      addedBy: addedBy || ''
     });
     await newProj.save();
     res.status(201).json(newProj);
@@ -542,7 +544,8 @@ router.get('/workers', async (req, res) => {
       role: w.role,
       wage: w.dailyWage,
       contact: w.contactInfo || '',
-      status: w.status
+      status: w.status,
+      addedBy: w.addedBy || ''
     }));
     res.json(workersList);
   } catch (error) {
@@ -552,13 +555,14 @@ router.get('/workers', async (req, res) => {
 
 router.post('/workers', async (req, res) => {
   try {
-    const { name, role, wage, contact, status } = req.body;
+    const { name, role, wage, contact, status, addedBy } = req.body;
     const newWorker = new Worker({
       name,
       role,
       dailyWage: Number(wage),
       contactInfo: contact,
-      status: status || 'Active'
+      status: status || 'Active',
+      addedBy: addedBy || ''
     });
     await newWorker.save();
     res.status(201).json({
@@ -567,7 +571,8 @@ router.post('/workers', async (req, res) => {
       role: newWorker.role,
       wage: newWorker.dailyWage,
       contact: newWorker.contactInfo,
-      status: newWorker.status
+      status: newWorker.status,
+      addedBy: newWorker.addedBy
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -620,7 +625,8 @@ router.get('/workers/logs', async (req, res) => {
       wage: log.wageAtTime,
       month: log.date.substring(0, 7),
       paymentStatus: log.paymentStatus,
-      amountPaid: log.amountPaid
+      amountPaid: log.amountPaid,
+      addedBy: log.addedBy || ''
     }));
     res.json(mappedLogs);
   } catch (error) {
@@ -631,7 +637,7 @@ router.get('/workers/logs', async (req, res) => {
 // Add daily log/attendance
 router.post('/workers/logs', async (req, res) => {
   try {
-    const { date, workerId, project, status, workTime, paymentStatus, amountPaid } = req.body;
+    const { date, workerId, project, status, workTime, paymentStatus, amountPaid, addedBy } = req.body;
 
     const worker = await Worker.findById(workerId);
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
@@ -710,7 +716,8 @@ router.post('/workers/logs', async (req, res) => {
       status,
       workTime,
       paymentStatus: finalPayStatus,
-      amountPaid: paidAmt
+      amountPaid: paidAmt,
+      addedBy: addedBy || ''
     });
     await newLog.save();
 
@@ -950,7 +957,8 @@ router.get('/materials', async (req, res) => {
       unit: m.unit,
       lowStockWarning: m.lowStockWarning,
       purchaseAmount: m.purchaseAmount,
-      batches: m.batches || []
+      batches: m.batches || [],
+      addedBy: m.addedBy || ''
     }));
     res.json(materialsList);
   } catch (error) {
@@ -961,7 +969,7 @@ router.get('/materials', async (req, res) => {
 // Create or update material stock
 router.post('/materials', async (req, res) => {
   try {
-    const { id, name, stock, unit, purchaseAmount, date } = req.body;
+    const { id, name, stock, unit, purchaseAmount, date, addedBy } = req.body;
     let material;
     
     // Normalize material name to Title Case
@@ -1028,7 +1036,8 @@ router.post('/materials', async (req, res) => {
         stock: qty,
         unit,
         purchaseAmount: rate,
-        batches: newBatches
+        batches: newBatches,
+        addedBy: addedBy || ''
       });
       await material.save();
     }
@@ -1151,7 +1160,8 @@ router.get('/materials/usage', async (req, res) => {
       purchaseCost: log.type === 'Miscellaneous' ? 0 : (log.purchaseCost || (log.quantity * (log.material ? log.material.purchaseAmount : 0))),
       batchesConsumed: log.type === 'Miscellaneous' ? 'N/A' : (log.batchesConsumed || 'Batch 1'),
       type: log.type || 'Material',
-      date: log.date
+      date: log.date,
+      addedBy: log.addedBy || ''
     }));
     res.json(mappedLogs);
   } catch (error) {
@@ -1162,7 +1172,7 @@ router.get('/materials/usage', async (req, res) => {
 // Log material usage (deducts stock for material, or records misc expense)
 router.post('/materials/usage', async (req, res) => {
   try {
-    const { id, material, project, quantity, distributionRate, selectedBatchIndex, date, type, unit, isMisc } = req.body;
+    const { id, material, project, quantity, distributionRate, selectedBatchIndex, date, type, unit, isMisc, addedBy } = req.body;
     const entryType = type || (isMisc ? 'Miscellaneous' : 'Material');
     const qty = Number(quantity) || 1;
     const dRate = Number(distributionRate) || 0;
@@ -1203,7 +1213,8 @@ router.post('/materials/usage', async (req, res) => {
           purchaseRateInfo: 'Misc Expense',
           purchaseCost: 0,
           batchesConsumed: 'N/A',
-          date: date
+          date: date,
+          addedBy: addedBy || ''
         });
         await usageLog.save();
 
@@ -1308,7 +1319,8 @@ router.post('/materials/usage', async (req, res) => {
         purchaseRateInfo: rateInfoStr,
         purchaseCost: computedPurchaseCost,
         batchesConsumed: computedBatchesConsumed,
-        date: date
+        date: date,
+        addedBy: addedBy || ''
       });
       await usageLog.save();
 
@@ -1335,7 +1347,8 @@ router.post('/materials/usage', async (req, res) => {
       purchaseCost: usageLog.purchaseCost,
       batchesConsumed: usageLog.batchesConsumed,
       type: 'Material',
-      date
+      date,
+      addedBy: usageLog.addedBy || ''
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1356,7 +1369,8 @@ router.get('/finances', async (req, res) => {
       projectId: inc.project ? inc.project._id : null,
       paymentType: inc.paymentType,
       date: inc.date,
-      category: inc.category
+      category: inc.category,
+      addedBy: inc.addedBy || ''
     }));
 
     // Dynamic stats computations
@@ -1505,7 +1519,7 @@ router.get('/finances', async (req, res) => {
 // Record Incoming income
 router.post('/finances', async (req, res) => {
   try {
-    const { project, amount, paymentType, date } = req.body;
+    const { project, amount, paymentType, date, addedBy } = req.body;
 
     const projectObj = await resolveProject(project);
     if (!projectObj) return res.status(404).json({ error: 'Project not found' });
@@ -1516,7 +1530,8 @@ router.post('/finances', async (req, res) => {
       type: 'Income',
       category: 'Site Payment',
       paymentType: paymentType || 'Bank Transfer',
-      date: date
+      date: date,
+      addedBy: addedBy || ''
     });
     await newIncome.save();
 
@@ -1527,7 +1542,42 @@ router.post('/finances', async (req, res) => {
       project: projectObj.name,
       paymentType: newIncome.paymentType,
       date: newIncome.date,
-      category: newIncome.category
+      category: newIncome.category,
+      addedBy: newIncome.addedBy
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update Incoming income
+router.put('/finances/:id', async (req, res) => {
+  try {
+    const { project, amount, paymentType, date } = req.body;
+    const income = await Finance.findById(req.params.id);
+    if (!income) return res.status(404).json({ error: 'Income record not found' });
+
+    let projectObj = null;
+    if (project) {
+      projectObj = await resolveProject(project);
+      if (!projectObj) return res.status(404).json({ error: 'Project not found' });
+      income.project = projectObj._id;
+    }
+
+    if (amount !== undefined) income.amount = Number(amount);
+    if (paymentType !== undefined) income.paymentType = paymentType;
+    if (date !== undefined) income.date = date;
+
+    await income.save();
+
+    res.json({
+      id: income._id,
+      type: 'Income',
+      amount: income.amount,
+      project: projectObj ? projectObj.name : income.project,
+      paymentType: income.paymentType,
+      date: income.date,
+      category: income.category
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
