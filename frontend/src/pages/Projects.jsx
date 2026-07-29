@@ -442,6 +442,7 @@ const Projects = () => {
                 <th>Spent</th>
                 <th>To Receive</th>
                 <th>Status</th>
+                <th>Added By</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -461,6 +462,7 @@ const Projects = () => {
                         {project.status}
                       </span>
                     </td>
+                    <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{project.addedBy || '—'}</td>
                     <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <button 
                         className="btn btn-secondary" 

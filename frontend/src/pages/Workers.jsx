@@ -66,7 +66,8 @@ const Workers = () => {
     deleteWorkerAction,
     addWorkerLogAction,
     updateWorkerLogAction,
-    deleteWorkerLogAction
+    deleteWorkerLogAction,
+    payAllWorkerPendingAction
   } = useCMS();
   
   // Modals state for Worker
@@ -368,6 +369,7 @@ const Workers = () => {
                 <th>Daily Rate</th>
                 <th>Contact</th>
                 <th>Status</th>
+                <th>Added By</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -384,6 +386,7 @@ const Workers = () => {
                       {worker.status}
                     </span>
                   </td>
+                  <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{worker.addedBy || '—'}</td>
                   <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                     <button 
                       className="btn btn-secondary" 
@@ -556,6 +559,7 @@ const Workers = () => {
                 <th>Paid</th>
                 <th>Pending</th>
                 <th>Status</th>
+                <th>Added By</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -583,6 +587,7 @@ const Workers = () => {
                       {log.paymentStatus}
                     </span>
                   </td>
+                  <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{log.addedBy || '—'}</td>
                   <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                     <button 
                       className="btn btn-secondary" 
@@ -711,9 +716,24 @@ const Workers = () => {
                   </div>
                 </div>
                 <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fef2f2', borderColor: '#fee2e2' }}>
-                  <div className="summary-content">
-                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Remaining Wage</h4>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>{formatCurrency(remainingWage)}</div>
+                  <div className="summary-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Remaining Wage</h4>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>{formatCurrency(remainingWage)}</div>
+                    </div>
+                    {remainingWage > 0 && (
+                      <button 
+                        className="btn btn-primary"
+                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${selectedWorker.name}?`)) {
+                            payAllWorkerPendingAction(selectedWorker.id || selectedWorker._id);
+                          }
+                        }}
+                      >
+                        Pay All Remaining
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -721,36 +741,51 @@ const Workers = () => {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 className="card-title" style={{ fontSize: '1rem', margin: 0 }}>Work History</h3>
-              <button 
-                className="btn btn-secondary" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                onClick={() => {
-                  const exportData = workerLogs.map(log => ({
-                    'Date': formatDate(log.date),
-                    'Worker Name': selectedWorker.name,
-                    'Project Site': log.project || '-',
-                    'Time Worked': log.workTime,
-                    'Wage Incurred (₹)': log.wage,
-                    'Paid (₹)': getAmountPaid(log),
-                    'Pending (₹)': getAmountPending(log),
-                    'Status': log.paymentStatus
-                  }));
-                  // Append a summary row at the bottom
-                  exportData.push({
-                    'Date': 'TOTAL SUMMARY',
-                    'Worker Name': `ID: ${formatWorkerId(selectedWorker.id || selectedWorker._id)}`,
-                    'Project Site': `Role: ${selectedWorker.role}`,
-                    'Time Worked': `${totalDays} Days Worked`,
-                    'Wage Incurred (₹)': totalEarnings,
-                    'Paid (₹)': wagePaid,
-                    'Pending (₹)': remainingWage,
-                    'Status': remainingWage <= 0 ? 'PAID' : 'PENDING'
-                  });
-                  exportToExcel(exportData, `Labour_Report_${selectedWorker.name.replace(/\s+/g, '_')}`);
-                }}
-              >
-                <Download size={14} /> Export Report
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {remainingWage > 0 && (
+                  <button 
+                    className="btn btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${selectedWorker.name}?`)) {
+                        payAllWorkerPendingAction(selectedWorker.id || selectedWorker._id);
+                      }
+                    }}
+                  >
+                    <DollarSign size={14} /> Pay All Remaining ({formatCurrency(remainingWage)})
+                  </button>
+                )}
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  onClick={() => {
+                    const exportData = workerLogs.map(log => ({
+                      'Date': formatDate(log.date),
+                      'Worker Name': selectedWorker.name,
+                      'Project Site': log.project || '-',
+                      'Time Worked': log.workTime,
+                      'Wage Incurred (₹)': log.wage,
+                      'Paid (₹)': getAmountPaid(log),
+                      'Pending (₹)': getAmountPending(log),
+                      'Status': log.paymentStatus
+                    }));
+                    // Append a summary row at the bottom
+                    exportData.push({
+                      'Date': 'TOTAL SUMMARY',
+                      'Worker Name': `ID: ${formatWorkerId(selectedWorker.id || selectedWorker._id)}`,
+                      'Project Site': `Role: ${selectedWorker.role}`,
+                      'Time Worked': `${totalDays} Days Worked`,
+                      'Wage Incurred (₹)': totalEarnings,
+                      'Paid (₹)': wagePaid,
+                      'Pending (₹)': remainingWage,
+                      'Status': remainingWage <= 0 ? 'PAID' : 'PENDING'
+                    });
+                    exportToExcel(exportData, `Labour_Report_${selectedWorker.name.replace(/\s+/g, '_')}`);
+                  }}
+                >
+                  <Download size={14} /> Export Report
+                </button>
+              </div>
             </div>
             <div className="table-container">
               <table>

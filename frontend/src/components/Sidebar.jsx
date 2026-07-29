@@ -16,7 +16,7 @@ import {
 import { useCMS } from '../context/CMSContext';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
-  const { logoutAction } = useCMS();
+  const { logoutAction, currentOwner } = useCMS();
   const menuItems = [
     { name: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/' },
     { name: 'Labour Management', icon: <Users size={18} />, path: '/workers' },
@@ -98,6 +98,53 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
           <LogOut size={18} />
           {!isCollapsed && <span>Logout</span>}
         </NavLink>
+
+        {/* Current Owner Badge */}
+        {!isCollapsed && currentOwner && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            padding: '0.65rem 0.9rem',
+            marginTop: '0.5rem',
+            background: 'rgba(255,255,255,0.07)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.12)'
+          }}>
+            <div style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+              fontSize: '0.7rem',
+              color: '#fff',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(249,115,22,0.4)'
+            }}>
+              {currentOwner.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+            <div style={{ overflow: 'hidden' }}>
+              <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentOwner}</p>
+              <p style={{ margin: 0, fontSize: '0.62rem', color: '#ffab91' }}>Logged in</p>
+            </div>
+          </div>
+        )}
+        {isCollapsed && currentOwner && (
+          <div title={currentOwner} style={{
+            width: '32px', height: '32px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, #f97316, #ea580c)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: '0.68rem', color: '#fff',
+            margin: '0.5rem auto 0',
+            boxShadow: '0 2px 8px rgba(249,115,22,0.4)'
+          }}>
+            {currentOwner.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+          </div>
+        )}
       </nav>
     </div>
   );

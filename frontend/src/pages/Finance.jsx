@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter, RotateCcw, FileText } from 'lucide-react';
+import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter, RotateCcw, FileText, Edit } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getLogoBase64Raw } from '../utils/logoBase64';
@@ -20,6 +20,7 @@ const Finance = () => {
     projects,
     loading,
     addIncomeAction,
+    updateIncomeAction,
     deleteFinanceAction
   } = useCMS();
 
@@ -27,6 +28,9 @@ const Finance = () => {
   
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [newIncome, setNewIncome] = useState({ project: '', amount: '', paymentType: 'Bank Transfer', date: new Date().toISOString().split('T')[0] });
+
+  const [showEditIncome, setShowEditIncome] = useState(false);
+  const [editingIncome, setEditingIncome] = useState({ id: '', project: '', amount: '', paymentType: 'Bank Transfer', date: '' });
 
   // Search and Filter states
   const [incomeSearch, setIncomeSearch] = useState('');
@@ -50,6 +54,23 @@ const Finance = () => {
     });
     setShowAddIncome(false);
     setNewIncome({ project: '', amount: '', paymentType: 'Bank Transfer', date: new Date().toISOString().split('T')[0] });
+  };
+
+  // Edit Income Handler
+  const handleUpdateIncome = (e) => {
+    e.preventDefault();
+    if (Number(editingIncome.amount) < 0) {
+      alert('Amount Received cannot be negative.');
+      return;
+    }
+    updateIncomeAction(editingIncome.id, {
+      project: editingIncome.project,
+      amount: Number(editingIncome.amount),
+      paymentType: editingIncome.paymentType,
+      date: editingIncome.date
+    });
+    setShowEditIncome(false);
+    setEditingIncome({ id: '', project: '', amount: '', paymentType: 'Bank Transfer', date: '' });
   };
 
   // Bill PDF generator for a specific project
@@ -359,6 +380,7 @@ const Finance = () => {
             </select>
           </div>
         </FilterModal>
+
         <div className="table-container">
           <table>
             <thead>
@@ -367,6 +389,7 @@ const Finance = () => {
                 <th>Site / Project</th>
                 <th>Payment Type</th>
                 <th>Amount Received (₹)</th>
+                <th>Added By</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -385,7 +408,25 @@ const Finance = () => {
                       <ArrowUpRight size={16} /> {formatRupee(inc.amount)}
                     </div>
                   </td>
+                  <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{inc.addedBy || '—'}</td>
                   <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.45rem' }}
+                      title="Edit Payment"
+                      onClick={() => {
+                        setEditingIncome({
+                          id: inc.id || inc._id,
+                          project: inc.project || '',
+                          amount: inc.amount || '',
+                          paymentType: inc.paymentType || 'Bank Transfer',
+                          date: inc.date ? inc.date.split('T')[0] : ''
+                        });
+                        setShowEditIncome(true);
+                      }}
+                    >
+                      <Edit size={14} />
+                    </button>
                     <button
                       className="btn btn-secondary"
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
@@ -400,7 +441,7 @@ const Finance = () => {
                       title="Delete Payment"
                       onClick={() => {
                         if (window.confirm("Are you sure you want to delete this incoming payment record?")) {
-                          deleteFinanceAction(inc.id || inc._id);
+                           deleteFinanceAction(inc.id || inc._id);
                         }
                       }}
                     >
@@ -410,7 +451,7 @@ const Finance = () => {
                 </tr>
               ))}
               {filteredIncomes.length === 0 && (
-                <tr><td colSpan="5" style={{textAlign: 'center', padding: '1rem'}}>No incoming payments found matching search query.</td></tr>
+                <tr><td colSpan="6" style={{textAlign: 'center', padding: '1rem'}}>No incoming payments found matching search query.</td></tr>
               )}
             </tbody>
           </table>
@@ -620,6 +661,72 @@ const Finance = () => {
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddIncome(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Save Income</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT INCOME MODAL */}
+      {showEditIncome && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <Edit size={18} color="var(--color-info)" /> Edit Site Payment Income
+              </h2>
+              <button className="btn-close" onClick={() => setShowEditIncome(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateIncome} className="modal-form">
+              <div className="form-group">
+                <label>Site / Project Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  list="finance-edit-project-list"
+                  value={editingIncome.project} 
+                  onChange={e => setEditingIncome({...editingIncome, project: e.target.value})} 
+                  placeholder="Type or select site..."
+                />
+                <datalist id="finance-edit-project-list">
+                  {projects.map((p, i) => <option key={i} value={p.name} />)}
+                </datalist>
+              </div>
+              <div className="form-group">
+                <label>Amount Received (₹)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  required 
+                  value={editingIncome.amount} 
+                  onChange={e => setEditingIncome({...editingIncome, amount: e.target.value})} 
+                  placeholder="e.g. 50000"
+                />
+              </div>
+              <div className="form-group">
+                <label>Payment Type</label>
+                <select required value={editingIncome.paymentType} onChange={e => setEditingIncome({...editingIncome, paymentType: e.target.value})}>
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Card">Card</option>
+                  <option value="Cheque">Cheque</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input 
+                  type="date" 
+                  required 
+                  value={editingIncome.date} 
+                  onChange={e => setEditingIncome({...editingIncome, date: e.target.value})} 
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditIncome(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Update Income</button>
               </div>
             </form>
           </div>

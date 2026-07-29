@@ -4,7 +4,7 @@ import {
   getWorkers, createWorker, updateWorker,
   getWorkerLogs, createWorkerLog, updateWorkerLog,
   getMaterials, saveMaterial, editMaterialBatch, deleteMaterialBatch, getMaterialUsage, logMaterialUsage,
-  getFinances, addIncome, getDashboardStats,
+  getFinances, addIncome, updateIncome, getDashboardStats,
   deleteProject, deleteWorker, deleteWorkerLog,
   deleteMaterial, deleteMaterialUsage, deleteFinance
 } from '../api';
@@ -17,17 +17,44 @@ import { getBatchLabels } from '../utils';
 
 const CMSContext = createContext(null);
 
+// ── Default owner accounts seeded on first launch ──────────────────────────
+const DEFAULT_OWNERS = [
+  { username: 'admin',  displayName: 'Admin',   password: 'admin123' },
+  { username: 'owner1', displayName: 'Owner 1', password: 'pass123'  },
+  { username: 'owner2', displayName: 'Owner 2', password: 'pass456'  },
+  { username: 'owner3', displayName: 'Owner 3', password: 'pass789'  },
+];
+
+const getOwners = () => {
+  try {
+    const stored = localStorage.getItem('shreeram_owners');
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+  localStorage.setItem('shreeram_owners', JSON.stringify(DEFAULT_OWNERS));
+  return DEFAULT_OWNERS;
+};
+
 export const CMSProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('shreeram_auth') === 'true';
   });
 
+  const [currentOwner, setCurrentOwner] = useState(() => {
+    return localStorage.getItem('shreeram_current_owner') || '';
+  });
+
+  const [owners, setOwners] = useState(getOwners);
+
   const [loading, setLoading] = useState(true);
 
   const loginAction = (username, password) => {
-    if (username === 'admin' && password === 'admin123') {
+    const ownerList = getOwners();
+    const match = ownerList.find(o => o.username === username && o.password === password);
+    if (match) {
       localStorage.setItem('shreeram_auth', 'true');
+      localStorage.setItem('shreeram_current_owner', match.displayName);
       setIsAuthenticated(true);
+      setCurrentOwner(match.displayName);
       return true;
     }
     return false;
@@ -35,7 +62,14 @@ export const CMSProvider = ({ children }) => {
 
   const logoutAction = () => {
     localStorage.removeItem('shreeram_auth');
+    localStorage.removeItem('shreeram_current_owner');
     setIsAuthenticated(false);
+    setCurrentOwner('');
+  };
+
+  const saveOwnersAction = (newOwners) => {
+    localStorage.setItem('shreeram_owners', JSON.stringify(newOwners));
+    setOwners(newOwners);
   };
   const [projects, setProjects] = useState([]);
   const [workers, setWorkers] = useState([]);
@@ -213,7 +247,7 @@ export const CMSProvider = ({ children }) => {
   // Action helpers to sync DB and background reload context state
   const addProjectAction = async (newProj) => {
     try {
-      await createProject(newProj);
+      await createProject({ ...newProj, addedBy: currentOwner });
       await fetchData(false);
     } catch (err) {
       console.warn('Backend createProject failed, updating local mock dataset:', err.message);
@@ -255,7 +289,7 @@ export const CMSProvider = ({ children }) => {
 
   const addWorkerAction = async (workerData) => {
     try {
-      await createWorker(workerData);
+      await createWorker({ ...workerData, addedBy: currentOwner });
       await fetchData(false);
     } catch (err) {
       console.warn('Backend createWorker failed, updating local mock dataset:', err.message);
@@ -284,7 +318,7 @@ export const CMSProvider = ({ children }) => {
 
   const addWorkerLogAction = async (logData) => {
     try {
-      await createWorkerLog(logData);
+      await createWorkerLog({ ...logData, addedBy: currentOwner });
       await fetchData(false);
     } catch (err) {
       // Surface conflict errors (409) directly to the user — do NOT fall back to mock
@@ -361,7 +395,7 @@ export const CMSProvider = ({ children }) => {
 
   const saveMaterialAction = async (materialData) => {
     try {
-      await saveMaterial(materialData);
+      await saveMaterial({ ...materialData, addedBy: currentOwner });
       await fetchData(false);
     } catch (err) {
       // Surface conflict/validation errors directly to the user
@@ -416,7 +450,7 @@ export const CMSProvider = ({ children }) => {
 
   const logMaterialUsageAction = async (usageData) => {
     try {
-      await logMaterialUsage(usageData);
+      await logMaterialUsage({ ...usageData, addedBy: currentOwner });
       await fetchData(false);
     } catch (err) {
       console.warn('Backend logMaterialUsage failed, updating local mock dataset:', err.message);
@@ -556,7 +590,7 @@ export const CMSProvider = ({ children }) => {
 
   const addIncomeAction = async (incomeData) => {
     try {
-      await addIncome(incomeData);
+      await addIncome({ ...incomeData, addedBy: currentOwner });
       await fetchData(false);
     } catch (err) {
       console.warn('Backend addIncome failed, updating local mock dataset:', err.message);
@@ -571,6 +605,53 @@ export const CMSProvider = ({ children }) => {
       });
       await fetchData(false);
     }
+  };
+
+  const updateIncomeAction = async (id, incomeData) => {
+    try {
+      await updateIncome(id, incomeData);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend updateIncome failed, updating local mock dataset:', err.message);
+      const fIdx = MOCK_FINANCES.findIndex(f => (f.id || f._id).toString() === id.toString());
+      if (fIdx !== -1) {
+        MOCK_FINANCES[fIdx] = {
+          ...MOCK_FINANCES[fIdx],
+          ...incomeData
+        };
+      }
+      await fetchData(false);
+    }
+  };
+
+  const payAllWorkerPendingAction = async (workerId) => {
+    const pendingLogs = dailyLogs.filter(l => 
+      (l.workerId || '').toString() === workerId.toString() &&
+      l.wage > 0 &&
+      l.paymentStatus !== 'Paid'
+    );
+
+    for (const log of pendingLogs) {
+      const logId = log.id || log._id;
+      const totalWage = log.wage || 0;
+      try {
+        await updateWorkerLog(logId, {
+          status: log.status,
+          workTime: log.workTime,
+          paymentStatus: 'Paid',
+          amountPaid: totalWage,
+          project: log.project
+        });
+      } catch (err) {
+        console.warn(`Failed to update log ${logId} in backend, fallback mock update:`, err.message);
+        const mLog = MOCK_DAILY_LOGS.find(l => (l.id || l._id).toString() === logId.toString());
+        if (mLog) {
+          mLog.paymentStatus = 'Paid';
+          mLog.amountPaid = totalWage;
+        }
+      }
+    }
+    await fetchData(false);
   };
 
   const deleteProjectAction = async (id, mode = 'soft') => {
@@ -784,10 +865,15 @@ export const CMSProvider = ({ children }) => {
       logMaterialUsageAction,
       deleteMaterialUsageAction,
       addIncomeAction,
+      updateIncomeAction,
+      payAllWorkerPendingAction,
       deleteFinanceAction,
       isAuthenticated,
       loginAction,
-      logoutAction
+      logoutAction,
+      currentOwner,
+      owners,
+      saveOwnersAction
     }}>
       {children}
     </CMSContext.Provider>

@@ -637,6 +637,7 @@ const Materials = () => {
                     <th>Available Stock</th>
                     <th>Unit</th>
                     <th>Total Value (Available)</th>
+                    <th>Added By</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -660,7 +661,8 @@ const Materials = () => {
                             purchaseRate: b.purchaseRate,
                             purchaseDate: b.purchaseDate,
                             totalValue: b.quantityAvailable * b.purchaseRate,
-                            fullMaterial: mat
+                            fullMaterial: mat,
+                            addedBy: mat.addedBy || ''
                           });
                         });
                       } else {
@@ -675,7 +677,8 @@ const Materials = () => {
                           purchaseRate: mat.purchaseAmount || 0,
                           purchaseDate: 'Historic',
                           totalValue: (mat.stock || 0) * (mat.purchaseAmount || 0),
-                          fullMaterial: mat
+                          fullMaterial: mat,
+                          addedBy: mat.addedBy || ''
                         });
                       }
                     });
@@ -699,6 +702,7 @@ const Materials = () => {
                         <td data-label="Available Stock" style={{ fontWeight: 700, color: row.stock <= 0 ? 'var(--color-danger)' : 'var(--color-text-main)' }}>{row.stock}</td>
                         <td data-label="Unit">{row.unit}</td>
                         <td data-label="Total Value" style={{ fontWeight: 600 }}>₹{row.totalValue.toLocaleString('en-IN')}</td>
+                        <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{row.addedBy || '—'}</td>
                         <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                           <button 
                             className="btn btn-secondary" 
@@ -748,7 +752,7 @@ const Materials = () => {
                       return matchesSearch && matchesStock;
                     });
                     return filteredBatchRows.length === 0 && (
-                      <tr><td colSpan="9" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No material stock batches found.</td></tr>
+                      <tr><td colSpan="10" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No material stock batches found.</td></tr>
                     );
                   })()}
                 </tbody>
@@ -892,6 +896,7 @@ const Materials = () => {
                   <th>Distribution Rate (₹)</th>
                   <th>Total Distributed Amount (₹)</th>
                   <th>Date of Distribution</th>
+                  <th>Added By</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -918,6 +923,7 @@ const Materials = () => {
                       <td data-label="Distribution Rate">₹{(log.distributionRate || 0).toLocaleString('en-IN')}</td>
                       <td data-label="Total Distributed Amount" style={{ fontWeight: 600 }}>₹{((log.quantity || 1) * (log.distributionRate || 0)).toLocaleString('en-IN')}</td>
                       <td data-label="Date">{formatDate(log.date)}</td>
+                      <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{log.addedBy || '—'}</td>
                       <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                         <button 
                           className="btn btn-secondary" 
@@ -947,7 +953,7 @@ const Materials = () => {
                   );
                 })}
                 {filteredUsageLogs.length === 0 && (
-                  <tr><td colSpan="12" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No usage logs found.</td></tr>
+                  <tr><td colSpan="13" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>No usage logs found.</td></tr>
                 )}
               </tbody>
             </table>
