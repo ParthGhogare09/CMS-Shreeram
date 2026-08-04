@@ -71,7 +71,7 @@ router.get('/dashboard', async (req, res) => {
     // Sum General Expenses (EXCLUDE Materials and Labor categories to avoid double-counting
     // since material costs and labor wages are computed separately below)
     const generalExpenseResult = await Finance.aggregate([
-      { $match: { type: 'Expense', category: { $nin: ['Materials', 'Labor'] } } },
+      { $match: { type: 'Expense', category: { $nin: ['Materials', 'Labor', 'Labor Advance'] } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const totalGeneralExpense = generalExpenseResult.length > 0 ? generalExpenseResult[0].total : 0;
@@ -545,7 +545,8 @@ router.get('/workers', async (req, res) => {
       wage: w.dailyWage,
       contact: w.contactInfo || '',
       status: w.status,
-      addedBy: w.addedBy || ''
+      addedBy: w.addedBy || '',
+      advance: w.advance || 0
     }));
     res.json(workersList);
   } catch (error) {
@@ -555,14 +556,15 @@ router.get('/workers', async (req, res) => {
 
 router.post('/workers', async (req, res) => {
   try {
-    const { name, role, wage, contact, status, addedBy } = req.body;
+    const { name, role, wage, contact, status, addedBy, advance } = req.body;
     const newWorker = new Worker({
       name,
       role,
       dailyWage: Number(wage),
       contactInfo: contact,
       status: status || 'Active',
-      addedBy: addedBy || ''
+      addedBy: addedBy || '',
+      advance: Number(advance) || 0
     });
     await newWorker.save();
     res.status(201).json({
@@ -572,7 +574,8 @@ router.post('/workers', async (req, res) => {
       wage: newWorker.dailyWage,
       contact: newWorker.contactInfo,
       status: newWorker.status,
-      addedBy: newWorker.addedBy
+      addedBy: newWorker.addedBy,
+      advance: newWorker.advance
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -581,16 +584,20 @@ router.post('/workers', async (req, res) => {
 
 router.put('/workers/:id', async (req, res) => {
   try {
-    const { name, role, wage, contact, status } = req.body;
+    const { name, role, wage, contact, status, advance } = req.body;
+    const updateData = {
+      name,
+      role,
+      dailyWage: Number(wage),
+      contactInfo: contact,
+      status
+    };
+    if (advance !== undefined) {
+      updateData.advance = Number(advance);
+    }
     const worker = await Worker.findByIdAndUpdate(
       req.params.id,
-      {
-        name,
-        role,
-        dailyWage: Number(wage),
-        contactInfo: contact,
-        status
-      },
+      updateData,
       { new: true }
     );
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
@@ -600,7 +607,90 @@ router.put('/workers/:id', async (req, res) => {
       role: worker.role,
       wage: worker.dailyWage,
       contact: worker.contactInfo,
-      status: worker.status
+      status: worker.status,
+      advance: worker.advance
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/workers/:id/advance', async (req, res) => {
+  try {
+    const amount = Number(req.body.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Advance amount must be a positive number' });
+    }
+    const worker = await Worker.findById(req.params.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    worker.advance = (worker.advance || 0) + amount;
+    await worker.save();
+
+    // Create a Finance record for this advance
+    const financeLog = new Finance({
+      amount: amount,
+      type: 'Expense',
+      category: 'Labor Advance',
+      paymentType: 'Cash',
+      description: `Advance given to ${worker.name}`,
+      date: new Date().toISOString().split('T')[0],
+      addedBy: req.body.addedBy || worker.addedBy || ''
+    });
+    await financeLog.save();
+
+    res.json({
+      message: 'Advance added successfully',
+      id: worker._id,
+      name: worker.name,
+      advance: worker.advance,
+      finance: financeLog
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/workers/:id/pay-wages', async (req, res) => {
+  try {
+    const workerId = req.params.id;
+    const worker = await Worker.findById(workerId);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    const pendingLogs = await WorkerLog.find({
+      worker: workerId,
+      wageAtTime: { $gt: 0 },
+      paymentStatus: { $ne: 'Paid' }
+    });
+
+    let totalPending = 0;
+    for (const log of pendingLogs) {
+      const incurred = log.wageAtTime || 0;
+      const paid = log.amountPaid || 0;
+      totalPending += Math.max(0, incurred - paid);
+    }
+
+    if (totalPending === 0) {
+      return res.status(400).json({ error: 'No pending wages to pay' });
+    }
+
+    const advanceUsed = Math.min(worker.advance || 0, totalPending);
+    worker.advance = (worker.advance || 0) - advanceUsed;
+    await worker.save();
+
+    // Now distribute payments to the logs
+    for (const log of pendingLogs) {
+      log.paymentStatus = 'Paid';
+      log.amountPaid = log.wageAtTime;
+      await log.save();
+    }
+
+    res.json({
+      message: 'Wages paid successfully',
+      totalPending,
+      advanceUsed,
+      cashPaid: totalPending - advanceUsed,
+      remainingAdvance: worker.advance
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1373,6 +1463,20 @@ router.get('/finances', async (req, res) => {
       addedBy: inc.addedBy || ''
     }));
 
+    const advances = await Finance.find({ category: 'Labor Advance' }).populate('project');
+    const mappedAdvances = advances.map(adv => ({
+      id: adv._id,
+      type: 'Expense',
+      amount: adv.amount,
+      project: adv.project ? adv.project.name : 'General',
+      projectId: adv.project ? adv.project._id : null,
+      paymentType: adv.paymentType,
+      date: adv.date,
+      category: adv.category,
+      description: adv.description,
+      addedBy: adv.addedBy || ''
+    }));
+
     // Dynamic stats computations
     // 1. Total Budgets of all projects
     const totalBudgetResult = await Project.aggregate([
@@ -1498,6 +1602,7 @@ router.get('/finances', async (req, res) => {
 
     res.json({
       incomes: mappedIncomes,
+      advances: mappedAdvances,
       stats: {
         totalBudget,
         totalRevenue,

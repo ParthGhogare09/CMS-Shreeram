@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const FinanceSchema = new mongoose.Schema({
-  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
   amount: { type: Number, required: true },
   type: { type: String, enum: ['Income', 'Expense'], required: true },
   category: { type: String, required: true, trim: true }, // 'Site Payment', 'Labor', 'Materials', 'Transportation', 'Rental', 'Miscellaneous'

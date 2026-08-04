@@ -9,7 +9,8 @@ const WorkerSchema = new mongoose.Schema({
   addedBy: { type: String, default: '' },
   isDeleted: { type: Boolean, default: false },
   deletedAt: { type: Date },
-  joinedAt: { type: Date, default: Date.now }
+  joinedAt: { type: Date, default: Date.now },
+  advance: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Worker', WorkerSchema);
