@@ -18,13 +18,14 @@ const Finance = () => {
   const {
     finances,
     projects,
+    workers,
     loading,
     addIncomeAction,
     updateIncomeAction,
     deleteFinanceAction
   } = useCMS();
 
-  const { incomes = [], stats = {}, labourStats = [], materialStats = [] } = finances;
+  const { incomes = [], advances = [], stats = {}, labourStats = [], materialStats = [] } = finances;
   
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [newIncome, setNewIncome] = useState({ project: '', amount: '', paymentType: 'Bank Transfer', date: new Date().toISOString().split('T')[0] });
@@ -36,6 +37,7 @@ const Finance = () => {
   const [incomeSearch, setIncomeSearch] = useState('');
   const [labourSearch, setLabourSearch] = useState('');
   const [materialSearch, setMaterialSearch] = useState('');
+  const [advanceSearch, setAdvanceSearch] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('All');
   const [showIncomeFilterModal, setShowIncomeFilterModal] = useState(false);
 
@@ -252,6 +254,10 @@ const Finance = () => {
 
   const filteredMaterialStats = materialStats.filter(mat => 
     mat.name.toLowerCase().includes(materialSearch.toLowerCase())
+  );
+
+  const filteredAdvances = (advances || []).filter(adv => 
+    (adv.description || '').toLowerCase().includes(advanceSearch.toLowerCase())
   );
 
   return (
@@ -522,6 +528,87 @@ const Finance = () => {
               ))}
               {filteredLabourStats.length === 0 && (
                 <tr><td colSpan="5" style={{textAlign: 'center', padding: '1rem'}}>No labour data available.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* LABOUR ADVANCE PAYMENTS (EXPENSES) TABLE */}
+      <div className="card" style={{ marginTop: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <h3 style={{ margin: 0 }}>Labour Advance Payments (Expenses)</h3>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ width: '180px' }}>
+              <SearchWithSuggestions 
+                value={advanceSearch}
+                onChange={setAdvanceSearch}
+                placeholder="Search by worker..."
+                suggestions={workers ? workers.map(w => w.name) : []}
+              />
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const exportData = filteredAdvances.map(adv => ({
+                  'Date': formatDate(adv.date),
+                  'Description': adv.description || 'Labor Advance',
+                  'Payment Type': adv.paymentType || 'Cash',
+                  'Amount Paid (Rs.)': Number(adv.amount || 0),
+                  'Added By': adv.addedBy || '-'
+                }));
+                exportToExcel(exportData, 'Labour_Advances_Report');
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+          </div>
+        </div>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Payment Type</th>
+                <th>Amount (₹)</th>
+                <th>Added By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAdvances.map((adv) => (
+                <tr key={adv.id || adv._id}>
+                  <td data-label="Date">{formatDate(adv.date)}</td>
+                  <td data-label="Description" style={{ fontWeight: 600 }}>{adv.description}</td>
+                  <td data-label="Payment Type">
+                    <span className="badge" style={{ backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--border-color)' }}>
+                      {adv.paymentType || 'Cash'}
+                    </span>
+                  </td>
+                  <td data-label="Amount" className="text-danger" style={{ fontWeight: 600 }}>
+                    ₹{(adv.amount || 0).toLocaleString('en-IN')}
+                  </td>
+                  <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{adv.addedBy || '—'}</td>
+                  <td data-label="Actions">
+                    <button 
+                      className="btn btn-secondary text-danger" 
+                      style={{ padding: '0.35rem 0.45rem', color: '#ef4444' }}
+                      title="Delete Advance Transaction"
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this advance payment record? This will NOT update the worker's outstanding balance, but will delete the finance history log.")) {
+                          deleteFinanceAction(adv.id || adv._id);
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filteredAdvances.length === 0 && (
+                <tr><td colSpan="6" style={{textAlign: 'center', padding: '1rem'}}>No labour advance payments found matching search query.</td></tr>
               )}
             </tbody>
           </table>

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   getProjects, createProject, updateProject, addProjectLog,
   getWorkers, createWorker, updateWorker,
-  getWorkerLogs, createWorkerLog, updateWorkerLog,
+  getWorkerLogs, createWorkerLog, updateWorkerLog, addWorkerAdvance, payWorkerWages,
   getMaterials, saveMaterial, editMaterialBatch, deleteMaterialBatch, getMaterialUsage, logMaterialUsage,
   getFinances, addIncome, updateIncome, getDashboardStats,
   deleteProject, deleteWorker, deleteWorkerLog,
@@ -78,6 +78,7 @@ export const CMSProvider = ({ children }) => {
   const [usageLogs, setUsageLogs] = useState([]);
   const [finances, setFinances] = useState({
     incomes: [],
+    advances: [],
     stats: { totalBudget: 0, totalRevenue: 0, totalLaborWage: 0, totalLaborPaid: 0, totalLaborPending: 0, totalMaterialSpent: 0 },
     labourStats: [],
     materialStats: []
@@ -128,7 +129,7 @@ export const CMSProvider = ({ children }) => {
       setProjects(MOCK_PROJECTS.filter(p => !p.isDeleted));
 
       // 2. Workers (filter soft-deleted)
-      setWorkers(MOCK_WORKERS.filter(w => !w.isDeleted));
+      setWorkers(MOCK_WORKERS.filter(w => !w.isDeleted).map(w => ({ ...w, advance: w.advance || 0 })));
 
       // 3. WorkerLogs
       setDailyLogs([...MOCK_DAILY_LOGS]);
@@ -193,6 +194,11 @@ export const CMSProvider = ({ children }) => {
 
       setFinances({
         incomes: MOCK_FINANCES.filter(f => f.type === 'Income').map(f => ({ ...f, paymentType: f.paymentType || 'Bank Transfer' })),
+        advances: MOCK_FINANCES.filter(f => f.category === 'Labor Advance').map(f => ({
+          ...f,
+          project: f.project || 'General',
+          paymentType: f.paymentType || 'Cash'
+        })),
         stats: {
           totalBudget,
           totalRevenue,
@@ -624,34 +630,71 @@ export const CMSProvider = ({ children }) => {
     }
   };
 
-  const payAllWorkerPendingAction = async (workerId) => {
-    const pendingLogs = dailyLogs.filter(l => 
-      (l.workerId || '').toString() === workerId.toString() &&
-      l.wage > 0 &&
-      l.paymentStatus !== 'Paid'
-    );
-
-    for (const log of pendingLogs) {
-      const logId = log.id || log._id;
-      const totalWage = log.wage || 0;
-      try {
-        await updateWorkerLog(logId, {
-          status: log.status,
-          workTime: log.workTime,
-          paymentStatus: 'Paid',
-          amountPaid: totalWage,
-          project: log.project
+  const addWorkerAdvanceAction = async (workerId, amount) => {
+    try {
+      await addWorkerAdvance(workerId, amount);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend addWorkerAdvance failed, updating local mock dataset:', err.message);
+      const idx = MOCK_WORKERS.findIndex(w => (w.id || w._id).toString() === workerId.toString());
+      if (idx !== -1) {
+        const worker = MOCK_WORKERS[idx];
+        worker.advance = (worker.advance || 0) + Number(amount);
+        MOCK_FINANCES.push({
+          id: MOCK_FINANCES.length + 1,
+          type: 'Expense',
+          amount: Number(amount),
+          project: 'General',
+          paymentType: 'Cash',
+          date: new Date().toISOString().split('T')[0],
+          category: 'Labor Advance',
+          description: `Advance given to ${worker.name}`,
+          addedBy: currentOwner || 'Admin'
         });
-      } catch (err) {
-        console.warn(`Failed to update log ${logId} in backend, fallback mock update:`, err.message);
+      }
+      await fetchData(false);
+    }
+  };
+
+  const payAllWorkerPendingAction = async (workerId) => {
+    try {
+      await payWorkerWages(workerId);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend payWorkerWages failed, falling back to local mock updates:', err.message);
+      const workerIdx = MOCK_WORKERS.findIndex(w => (w.id || w._id).toString() === workerId.toString());
+      const worker = workerIdx !== -1 ? MOCK_WORKERS[workerIdx] : null;
+      const advance = worker ? (worker.advance || 0) : 0;
+
+      const pendingLogs = dailyLogs.filter(l => 
+        (l.workerId || '').toString() === workerId.toString() &&
+        l.wage > 0 &&
+        l.paymentStatus !== 'Paid'
+      );
+
+      let totalPending = 0;
+      pendingLogs.forEach(l => {
+        const incurred = l.wage || 0;
+        const paid = l.amountPaid !== undefined ? l.amountPaid : 0;
+        totalPending += Math.max(0, incurred - paid);
+      });
+
+      const advanceUsed = Math.min(advance, totalPending);
+      if (worker) {
+        worker.advance = advance - advanceUsed;
+      }
+
+      for (const log of pendingLogs) {
+        const logId = log.id || log._id;
+        const totalWage = log.wage || 0;
         const mLog = MOCK_DAILY_LOGS.find(l => (l.id || l._id).toString() === logId.toString());
         if (mLog) {
           mLog.paymentStatus = 'Paid';
           mLog.amountPaid = totalWage;
         }
       }
+      await fetchData(false);
     }
-    await fetchData(false);
   };
 
   const deleteProjectAction = async (id, mode = 'soft') => {
@@ -854,6 +897,7 @@ export const CMSProvider = ({ children }) => {
       addProjectLogAction,
       addWorkerAction,
       updateWorkerAction,
+      addWorkerAdvanceAction,
       deleteWorkerAction,
       addWorkerLogAction,
       updateWorkerLogAction,

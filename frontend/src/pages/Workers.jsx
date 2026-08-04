@@ -63,6 +63,7 @@ const Workers = () => {
     loading,
     addWorkerAction,
     updateWorkerAction,
+    addWorkerAdvanceAction,
     deleteWorkerAction,
     addWorkerLogAction,
     updateWorkerLogAction,
@@ -73,6 +74,8 @@ const Workers = () => {
   // Modals state for Worker
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [showEditWorker, setShowEditWorker] = useState(false);
+  const [showAddAdvance, setShowAddAdvance] = useState(false);
+  const [advanceAmount, setAdvanceAmount] = useState('');
   const [currentWorker, setCurrentWorker] = useState({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
 
   // Modals state for Log
@@ -120,7 +123,8 @@ const Workers = () => {
     const activeWorkers = workers.filter(w => w.status === 'Active').length;
     const totalWagePaid = dailyLogs.reduce((sum, log) => sum + getAmountPaid(log), 0);
     const totalWageToPay = dailyLogs.reduce((sum, log) => sum + getAmountPending(log), 0);
-    return { totalWorkers, activeWorkers, totalWagePaid, totalWageToPay };
+    const totalAdvanceGiven = workers.reduce((sum, w) => sum + (w.advance || 0), 0);
+    return { totalWorkers, activeWorkers, totalWagePaid, totalWageToPay, totalAdvanceGiven };
   }, [workers, dailyLogs]);
 
   const handleAddWorker = (e) => {
@@ -155,6 +159,18 @@ const Workers = () => {
     });
     setShowEditWorker(false);
     setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
+  };
+
+  const handleSaveAdvance = async (e) => {
+    e.preventDefault();
+    const amt = Number(advanceAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter a valid positive advance amount.');
+      return;
+    }
+    await addWorkerAdvanceAction(currentWorker.id || currentWorker._id, amt);
+    setShowAddAdvance(false);
+    setAdvanceAmount('');
   };
 
   const handleSaveLog = (e) => {
@@ -368,6 +384,7 @@ const Workers = () => {
                 <th>Role</th>
                 <th>Daily Rate</th>
                 <th>Contact</th>
+                <th>Advance Balance</th>
                 <th>Status</th>
                 <th>Added By</th>
                 <th>Actions</th>
@@ -381,6 +398,9 @@ const Workers = () => {
                   <td data-label="Role">{worker.role}</td>
                   <td data-label="Daily Rate">{formatCurrency(worker.wage)}/day</td>
                   <td data-label="Contact">{worker.contact}</td>
+                  <td data-label="Advance Balance" style={{ fontWeight: 600, color: worker.advance > 0 ? '#ef4444' : 'var(--color-text-muted)' }}>
+                    {formatCurrency(worker.advance || 0)}
+                  </td>
                   <td data-label="Status">
                     <span className={`badge ${worker.status === 'Active' ? 'badge-active' : 'badge-completed'}`}>
                       {worker.status}
@@ -388,6 +408,18 @@ const Workers = () => {
                   </td>
                   <td data-label="Added By" style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{worker.addedBy || '—'}</td>
                   <td data-label="Actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button 
+                      className="btn btn-secondary text-success" 
+                      style={{ padding: '0.35rem 0.45rem', color: '#10b981' }} 
+                      title="Add Advance Money"
+                      onClick={() => {
+                        setCurrentWorker(worker);
+                        setAdvanceAmount('');
+                        setShowAddAdvance(true);
+                      }}
+                    >
+                      <DollarSign size={14} />
+                    </button>
                     <button 
                       className="btn btn-secondary" 
                       style={{ padding: '0.35rem 0.45rem' }} 
@@ -641,11 +673,16 @@ const Workers = () => {
       setSelectedWorker(w || null);
     };
 
-    const workerLogs = selectedWorker ? dailyLogs.filter(l => (l.workerId || '').toString() === (selectedWorker.id || selectedWorker._id || '').toString()) : [];
+    const activeWorkerObj = selectedWorker ? workers.find(w => (w.id || w._id || '').toString() === (selectedWorker.id || selectedWorker._id || '').toString()) : null;
+
+    const workerLogs = activeWorkerObj ? dailyLogs.filter(l => (l.workerId || '').toString() === (activeWorkerObj.id || activeWorkerObj._id || '').toString()) : [];
     const totalDays = workerLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
     const totalEarnings = workerLogs.reduce((sum, l) => sum + l.wage, 0);
     const wagePaid = workerLogs.reduce((sum, l) => sum + getAmountPaid(l), 0);
     const remainingWage = workerLogs.reduce((sum, l) => sum + getAmountPending(l), 0);
+    const advanceBalance = activeWorkerObj ? (activeWorkerObj.advance || 0) : 0;
+    const netPayable = Math.max(0, remainingWage - advanceBalance);
+    const remainingAdvance = Math.max(0, advanceBalance - remainingWage);
 
     return (
       <div className="card">
@@ -670,27 +707,27 @@ const Workers = () => {
           <button className="btn btn-primary" onClick={handleSearch} style={{ minWidth: '80px' }}>Search</button>
         </div>
 
-        {selectedWorker && (
+        {activeWorkerObj && (
           <>
             <div className="worker-profile-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', alignItems: 'stretch' }}>
               <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
                 <div className="worker-profile-details" style={{ flex: 1 }}>
                   <div className="detail-group">
                     <span className="detail-label">Worker ID</span>
-                    <span className="detail-value" style={{ fontWeight: 700 }}>{formatWorkerId(selectedWorker.id || selectedWorker._id)}</span>
+                    <span className="detail-value" style={{ fontWeight: 700 }}>{formatWorkerId(activeWorkerObj.id || activeWorkerObj._id)}</span>
                   </div>
                   <div className="detail-group">
                     <span className="detail-label">Full Name</span>
-                    <span className="detail-value">{selectedWorker.name}</span>
+                    <span className="detail-value">{activeWorkerObj.name}</span>
                   </div>
                   <div className="detail-group">
                     <span className="detail-label">Role & Rate</span>
-                    <span className="detail-value">{selectedWorker.role} - {formatCurrency(selectedWorker.wage)}/day</span>
+                    <span className="detail-value">{activeWorkerObj.role} - {formatCurrency(activeWorkerObj.wage)}/day</span>
                   </div>
                   <div className="detail-group">
                     <span className="detail-label">Status</span>
-                    <span className={`badge ${selectedWorker.status === 'Active' ? 'badge-active' : 'badge-completed'}`} style={{ width: 'fit-content', marginTop: '2px' }}>
-                      {selectedWorker.status}
+                    <span className={`badge ${activeWorkerObj.status === 'Active' ? 'badge-active' : 'badge-completed'}`} style={{ width: 'fit-content', marginTop: '2px' }}>
+                      {activeWorkerObj.status}
                     </span>
                   </div>
                 </div>
@@ -716,22 +753,45 @@ const Workers = () => {
                   </div>
                 </div>
                 <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fef2f2', borderColor: '#fee2e2' }}>
+                  <div className="summary-content">
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Remaining Wage</h4>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>{formatCurrency(remainingWage)}</div>
+                  </div>
+                </div>
+                <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fff1f2', borderColor: '#ffe4e6' }}>
+                  <div className="summary-content">
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Advance Balance</h4>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#e11d48' }}>{formatCurrency(advanceBalance)}</div>
+                  </div>
+                </div>
+                <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
                   <div className="summary-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Remaining Wage</h4>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>{formatCurrency(remainingWage)}</div>
+                      <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Net Payable</h4>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-success)' }}>{formatCurrency(netPayable)}</div>
+                      {advanceBalance > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: '#e11d48', marginTop: '2px', fontWeight: 500 }}>
+                          Deducted: -{formatCurrency(Math.min(advanceBalance, remainingWage))}
+                          {remainingAdvance > 0 && ` (Remaining: ${formatCurrency(remainingAdvance)})`}
+                        </div>
+                      )}
                     </div>
                     {remainingWage > 0 && (
                       <button 
                         className="btn btn-primary"
                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${selectedWorker.name}?`)) {
-                            payAllWorkerPendingAction(selectedWorker.id || selectedWorker._id);
+                        onClick={async () => {
+                          const advUsed = Math.min(advanceBalance, remainingWage);
+                          let confirmMsg = `Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${activeWorkerObj.name}?`;
+                          if (advUsed > 0) {
+                            confirmMsg += `\n- Deduction from Advance: -${formatCurrency(advUsed)}\n- Net Cash Payout: ${formatCurrency(netPayable)}`;
+                          }
+                          if (window.confirm(confirmMsg)) {
+                            await payAllWorkerPendingAction(activeWorkerObj.id || activeWorkerObj._id);
                           }
                         }}
                       >
-                        Pay All Remaining
+                        Pay All
                       </button>
                     )}
                   </div>
@@ -746,9 +806,14 @@ const Workers = () => {
                   <button 
                     className="btn btn-primary"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
-                    onClick={() => {
-                      if (window.confirm(`Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${selectedWorker.name}?`)) {
-                        payAllWorkerPendingAction(selectedWorker.id || selectedWorker._id);
+                    onClick={async () => {
+                      const advUsed = Math.min(advanceBalance, remainingWage);
+                      let confirmMsg = `Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${activeWorkerObj.name}?`;
+                      if (advUsed > 0) {
+                        confirmMsg += `\n- Deduction from Advance: -${formatCurrency(advUsed)}\n- Net Cash Payout: ${formatCurrency(netPayable)}`;
+                      }
+                      if (window.confirm(confirmMsg)) {
+                        await payAllWorkerPendingAction(activeWorkerObj.id || activeWorkerObj._id);
                       }
                     }}
                   >
@@ -761,7 +826,7 @@ const Workers = () => {
                   onClick={() => {
                     const exportData = workerLogs.map(log => ({
                       'Date': formatDate(log.date),
-                      'Worker Name': selectedWorker.name,
+                      'Worker Name': activeWorkerObj.name,
                       'Project Site': log.project || '-',
                       'Time Worked': log.workTime,
                       'Wage Incurred (₹)': log.wage,
@@ -772,15 +837,15 @@ const Workers = () => {
                     // Append a summary row at the bottom
                     exportData.push({
                       'Date': 'TOTAL SUMMARY',
-                      'Worker Name': `ID: ${formatWorkerId(selectedWorker.id || selectedWorker._id)}`,
-                      'Project Site': `Role: ${selectedWorker.role}`,
+                      'Worker Name': `ID: ${formatWorkerId(activeWorkerObj.id || activeWorkerObj._id)}`,
+                      'Project Site': `Role: ${activeWorkerObj.role}`,
                       'Time Worked': `${totalDays} Days Worked`,
                       'Wage Incurred (₹)': totalEarnings,
                       'Paid (₹)': wagePaid,
                       'Pending (₹)': remainingWage,
                       'Status': remainingWage <= 0 ? 'PAID' : 'PENDING'
                     });
-                    exportToExcel(exportData, `Labour_Report_${selectedWorker.name.replace(/\s+/g, '_')}`);
+                    exportToExcel(exportData, `Labour_Report_${activeWorkerObj.name.replace(/\s+/g, '_')}`);
                   }}
                 >
                   <Download size={14} /> Export Report
@@ -1230,6 +1295,15 @@ const Workers = () => {
             <div className="summary-value">{formatCurrency(stats.totalWageToPay)}</div>
           </div>
         </div>
+        <div className="summary-card" style={{ backgroundColor: '#fff1f2', borderColor: '#ffe4e6' }}>
+          <div className="summary-icon-box" style={{ backgroundColor: '#ffe4e6', color: '#e11d48' }}>
+            <DollarSign size={24} />
+          </div>
+          <div className="summary-content">
+            <h3 className="summary-title">Total Outstanding Advance</h3>
+            <div className="summary-value" style={{ color: '#e11d48' }}>{formatCurrency(stats.totalAdvanceGiven)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Navigation Pills */}
@@ -1319,6 +1393,42 @@ const Workers = () => {
                   setShowEditWorker(false);
                 }}>Cancel</button>
                 <button type="submit" className="btn btn-primary">{showEditWorker ? 'Save Changes' : 'Save Worker'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showAddAdvance && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                <DollarSign size={18} color="#10b981" /> Give Advance Money to {currentWorker.name}
+              </h2>
+              <button className="btn-close" onClick={() => {
+                setShowAddAdvance(false);
+              }}>
+                <X size={18} />
+              </button>
+            </div>
+            <form className="modal-form" onSubmit={handleSaveAdvance}>
+              <div className="form-group">
+                <label>Advance Amount (₹)</label>
+                <input 
+                  required 
+                  type="number" 
+                  min="1" 
+                  value={advanceAmount} 
+                  onChange={e => setAdvanceAmount(e.target.value)} 
+                  placeholder="e.g. 5000" 
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => {
+                  setShowAddAdvance(false);
+                }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}>Add Advance</button>
               </div>
             </form>
           </div>
