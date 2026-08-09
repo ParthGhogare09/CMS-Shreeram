@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 

@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useState, useMemo } from 'react';
 import { 
   Users, 
@@ -76,6 +77,8 @@ const Workers = () => {
   const [showEditWorker, setShowEditWorker] = useState(false);
   const [showAddAdvance, setShowAddAdvance] = useState(false);
   const [advanceAmount, setAdvanceAmount] = useState('');
+  const [showConfirmPayoutModal, setShowConfirmPayoutModal] = useState(false);
+  const [payoutDeductAdvance, setPayoutDeductAdvance] = useState(true);
   const [currentWorker, setCurrentWorker] = useState({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
 
   // Modals state for Log
@@ -126,6 +129,9 @@ const Workers = () => {
     const totalAdvanceGiven = workers.reduce((sum, w) => sum + (w.advance || 0), 0);
     return { totalWorkers, activeWorkers, totalWagePaid, totalWageToPay, totalAdvanceGiven };
   }, [workers, dailyLogs]);
+
+  const activeWorkerObjForModal = selectedWorker ? workers.find(w => (w.id || w._id || '').toString() === (selectedWorker.id || selectedWorker._id || '').toString()) : null;
+  const workerLogsForModal = activeWorkerObjForModal ? dailyLogs.filter(l => (l.workerId || '').toString() === (activeWorkerObjForModal.id || activeWorkerObjForModal._id || '').toString()) : [];
 
   const handleAddWorker = (e) => {
     e.preventDefault();
@@ -781,13 +787,13 @@ const Workers = () => {
                         className="btn btn-primary"
                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
                         onClick={async () => {
-                          const advUsed = Math.min(advanceBalance, remainingWage);
-                          let confirmMsg = `Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${activeWorkerObj.name}?`;
-                          if (advUsed > 0) {
-                            confirmMsg += `\n- Deduction from Advance: -${formatCurrency(advUsed)}\n- Net Cash Payout: ${formatCurrency(netPayable)}`;
-                          }
-                          if (window.confirm(confirmMsg)) {
-                            await payAllWorkerPendingAction(activeWorkerObj.id || activeWorkerObj._id);
+                          if (advanceBalance > 0) {
+                            setPayoutDeductAdvance(true);
+                            setShowConfirmPayoutModal(true);
+                          } else {
+                            if (window.confirm(`Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${activeWorkerObj.name}?`)) {
+                              await payAllWorkerPendingAction(activeWorkerObj.id || activeWorkerObj._id, { deductFromAdvance: false });
+                            }
                           }
                         }}
                       >
@@ -807,13 +813,13 @@ const Workers = () => {
                     className="btn btn-primary"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
                     onClick={async () => {
-                      const advUsed = Math.min(advanceBalance, remainingWage);
-                      let confirmMsg = `Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${activeWorkerObj.name}?`;
-                      if (advUsed > 0) {
-                        confirmMsg += `\n- Deduction from Advance: -${formatCurrency(advUsed)}\n- Net Cash Payout: ${formatCurrency(netPayable)}`;
-                      }
-                      if (window.confirm(confirmMsg)) {
-                        await payAllWorkerPendingAction(activeWorkerObj.id || activeWorkerObj._id);
+                      if (advanceBalance > 0) {
+                        setPayoutDeductAdvance(true);
+                        setShowConfirmPayoutModal(true);
+                      } else {
+                        if (window.confirm(`Are you sure you want to mark all pending wages (${formatCurrency(remainingWage)}) as PAID for ${activeWorkerObj.name}?`)) {
+                          await payAllWorkerPendingAction(activeWorkerObj.id || activeWorkerObj._id, { deductFromAdvance: false });
+                        }
                       }
                     }}
                   >
@@ -1585,6 +1591,129 @@ const Workers = () => {
           </div>
         </div>
       )}
+
+      {showConfirmPayoutModal && activeWorkerObjForModal && (() => {
+        const remainingWageForModal = workerLogsForModal.reduce((sum, l) => sum + getAmountPending(l), 0);
+        const advanceBalanceForModal = activeWorkerObjForModal ? (activeWorkerObjForModal.advance || 0) : 0;
+        const netPayableForModal = Math.max(0, remainingWageForModal - advanceBalanceForModal);
+        const deductionForModal = Math.min(advanceBalanceForModal, remainingWageForModal);
+
+        return (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ maxWidth: '480px' }}>
+              <div className="modal-header">
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', margin: 0 }}>
+                  <DollarSign size={18} color="var(--color-info)" /> Wage Payout for {activeWorkerObjForModal.name}
+                </h2>
+                <button className="btn-close" onClick={() => setShowConfirmPayoutModal(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Total Pending Wages:</span>
+                  <span style={{ fontWeight: 'bold' }}>{formatCurrency(remainingWageForModal)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Current Advance Balance:</span>
+                  <span style={{ fontWeight: 'bold', color: '#e11d48' }}>{formatCurrency(advanceBalanceForModal)}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <label 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'flex-start', 
+                    gap: '12px', 
+                    padding: '1rem', 
+                    borderRadius: '6px', 
+                    border: `2px solid ${payoutDeductAdvance ? 'var(--color-primary)' : 'var(--border-color)'}`,
+                    backgroundColor: payoutDeductAdvance ? 'var(--color-primary-bg)' : 'var(--color-bg-card)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    userSelect: 'none'
+                  }}
+                  onClick={() => setPayoutDeductAdvance(true)}
+                >
+                  <input 
+                    type="radio" 
+                    name="payout-option" 
+                    checked={payoutDeductAdvance} 
+                    onChange={() => setPayoutDeductAdvance(true)}
+                    style={{ marginTop: '3px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '2px' }}>Deduct from Outstanding Advance</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                      Wages will be settled using the worker's advance first.
+                      <div style={{ marginTop: '4px', fontWeight: 600, color: 'var(--color-primary)' }}>
+                        Deduction: -{formatCurrency(deductionForModal)} | Net Cash Outflow: {formatCurrency(netPayableForModal)}
+                      </div>
+                    </div>
+                  </div>
+                </label>
+
+                <label 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'flex-start', 
+                    gap: '12px', 
+                    padding: '1rem', 
+                    borderRadius: '6px', 
+                    border: `2px solid ${!payoutDeductAdvance ? 'var(--color-primary)' : 'var(--border-color)'}`,
+                    backgroundColor: !payoutDeductAdvance ? 'var(--color-primary-bg)' : 'var(--color-bg-card)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    userSelect: 'none'
+                  }}
+                  onClick={() => setPayoutDeductAdvance(false)}
+                >
+                  <input 
+                    type="radio" 
+                    name="payout-option" 
+                    checked={!payoutDeductAdvance} 
+                    onChange={() => setPayoutDeductAdvance(false)}
+                    style={{ marginTop: '3px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '2px' }}>Pay Separately (Leave Advance Untouched)</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                      Wages will be paid in full using cash or UPI. The advance balance remains outstanding.
+                      <div style={{ marginTop: '4px', fontWeight: 600, color: 'var(--color-success)' }}>
+                        Net Cash Outflow: {formatCurrency(remainingWageForModal)}
+                      </div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowConfirmPayoutModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  style={{ backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                  onClick={async () => {
+                    setShowConfirmPayoutModal(false);
+                    await payAllWorkerPendingAction(activeWorkerObjForModal.id || activeWorkerObjForModal._id, { deductFromAdvance: payoutDeductAdvance });
+                  }}
+                >
+                  Confirm & Pay
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <DeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}

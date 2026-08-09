@@ -1,3 +1,4 @@
+// Basic demo command
 import React from 'react';
 import { X, RotateCcw, Check, Filter } from 'lucide-react';
 

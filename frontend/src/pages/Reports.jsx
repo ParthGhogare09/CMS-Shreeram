@@ -1,3 +1,4 @@
+// Basic demo command
 import React from 'react';
 import { MOCK_WORKERS, PROJECT_LOGS, MOCK_PROJECTS } from '../mockData';
 

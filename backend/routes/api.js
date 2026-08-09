@@ -1,3 +1,4 @@
+// Basic demo command
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
@@ -654,6 +655,7 @@ router.post('/workers/:id/advance', async (req, res) => {
 router.post('/workers/:id/pay-wages', async (req, res) => {
   try {
     const workerId = req.params.id;
+    const { deductFromAdvance, addedBy } = req.body;
     const worker = await Worker.findById(workerId);
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
@@ -674,9 +676,26 @@ router.post('/workers/:id/pay-wages', async (req, res) => {
       return res.status(400).json({ error: 'No pending wages to pay' });
     }
 
-    const advanceUsed = Math.min(worker.advance || 0, totalPending);
-    worker.advance = (worker.advance || 0) - advanceUsed;
-    await worker.save();
+    let advanceUsed = 0;
+    if (deductFromAdvance !== false) {
+      advanceUsed = Math.min(worker.advance || 0, totalPending);
+      if (advanceUsed > 0) {
+        worker.advance = (worker.advance || 0) - advanceUsed;
+        await worker.save();
+
+        // Create a Finance record for the advance deduction (negative amount expense)
+        const financeLog = new Finance({
+          amount: -advanceUsed,
+          type: 'Expense',
+          category: 'Labor Advance',
+          paymentType: 'Cash',
+          description: `Advance adjusted against wages for ${worker.name}`,
+          date: new Date().toISOString().split('T')[0],
+          addedBy: addedBy || ''
+        });
+        await financeLog.save();
+      }
+    }
 
     // Now distribute payments to the logs
     for (const log of pendingLogs) {

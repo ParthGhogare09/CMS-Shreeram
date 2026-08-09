@@ -1,3 +1,4 @@
+// Basic demo command
 import axios from 'axios';
 
 const API = axios.create({
@@ -21,7 +22,7 @@ export const getWorkerLogs = () => API.get('/workers/logs');
 export const createWorkerLog = (logData) => API.post('/workers/logs', logData);
 export const updateWorkerLog = (id, logData) => API.put(`/workers/logs/${id}`, logData);
 export const addWorkerAdvance = (id, amount) => API.post(`/workers/${id}/advance`, { amount });
-export const payWorkerWages = (id) => API.post(`/workers/${id}/pay-wages`);
+export const payWorkerWages = (id, deductFromAdvance) => API.post(`/workers/${id}/pay-wages`, { deductFromAdvance });
 
 export const getMaterials = () => API.get('/materials');
 export const saveMaterial = (materialData) => API.post('/materials', materialData);

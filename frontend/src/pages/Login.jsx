@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useState } from 'react';
 import { Building2, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';

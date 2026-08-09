@@ -1,3 +1,4 @@
+// Basic demo command
 /**
  * Logo utility for PDF and Excel exports.
  * Fetches /logo.jpg (in the public folder) and caches as base64.

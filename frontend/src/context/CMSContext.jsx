@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   getProjects, createProject, updateProject, addProjectLog,
@@ -656,9 +657,10 @@ export const CMSProvider = ({ children }) => {
     }
   };
 
-  const payAllWorkerPendingAction = async (workerId) => {
+  const payAllWorkerPendingAction = async (workerId, options = {}) => {
+    const { deductFromAdvance = true } = options;
     try {
-      await payWorkerWages(workerId);
+      await payWorkerWages(workerId, deductFromAdvance);
       await fetchData(false);
     } catch (err) {
       console.warn('Backend payWorkerWages failed, falling back to local mock updates:', err.message);
@@ -679,9 +681,24 @@ export const CMSProvider = ({ children }) => {
         totalPending += Math.max(0, incurred - paid);
       });
 
-      const advanceUsed = Math.min(advance, totalPending);
-      if (worker) {
-        worker.advance = advance - advanceUsed;
+      let advanceUsed = 0;
+      if (deductFromAdvance !== false) {
+        advanceUsed = Math.min(advance, totalPending);
+        if (worker && advanceUsed > 0) {
+          worker.advance = advance - advanceUsed;
+          
+          MOCK_FINANCES.push({
+            id: MOCK_FINANCES.length + 1,
+            type: 'Expense',
+            amount: -advanceUsed,
+            project: 'General',
+            paymentType: 'Cash',
+            date: new Date().toISOString().split('T')[0],
+            category: 'Labor Advance',
+            description: `Advance adjusted against wages for ${worker.name}`,
+            addedBy: currentOwner || 'Admin'
+          });
+        }
       }
 
       for (const log of pendingLogs) {

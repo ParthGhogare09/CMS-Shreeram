@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useState } from 'react';
 import { Package, Truck, AlertTriangle, Plus, Search, Trash2, Edit, Download, Filter, X, RotateCcw } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';

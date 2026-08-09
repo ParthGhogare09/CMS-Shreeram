@@ -1,3 +1,4 @@
+// Basic demo command
 const mongoose = require('mongoose');
 
 const FinanceSchema = new mongoose.Schema({

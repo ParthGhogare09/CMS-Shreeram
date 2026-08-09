@@ -1,3 +1,4 @@
+// Basic demo command
 export let MOCK_PROJECTS = [
   { id: 1, name: 'Skyline Tower', client: 'Apex Builders', budget: 50000000, status: 'Active', collected: 20000000, spent: 17500000 },
   { id: 2, name: 'Riverside Condos', client: 'Grand Lakes Realty', budget: 25000000, status: 'Planning', collected: 5000000, spent: 800000 },
@@ -5,7 +6,7 @@ export let MOCK_PROJECTS = [
 ];
 
 export let MOCK_WORKERS = [
-  { id: 1, name: 'Rajesh Kumar', role: 'Foreman', wage: 1200, contact: '9876543210', status: 'Active' },
+  { id: 1, name: 'Rajesh Kumar', role: 'Foreman', wage: 1200, contact: '9876543210', status: 'Active', advance: 5000 },
   { id: 2, name: 'Amit Singh', role: 'Electrician', wage: 800, contact: '9876543211', status: 'Active' },
   { id: 3, name: 'Priya Sharma', role: 'Plumber', wage: 900, contact: '9876543212', status: 'Active' },
   { id: 4, name: 'Vikram Patel', role: 'Mason', wage: 750, contact: '9876543213', status: 'Inactive' },
@@ -37,6 +38,7 @@ export const MOCK_FINANCES = [
   { id: 2, type: 'Expense', amount: 200000, category: 'Materials', project: 'Skyline Tower', date: '2026-04-05' },
   { id: 3, type: 'Expense', amount: 50000, category: 'Labor', project: 'Skyline Tower', date: '2026-04-10' },
   { id: 4, type: 'Income', amount: 500000, category: 'Deposit', project: 'Riverside Condos', date: '2026-04-12' },
+  { id: 5, type: 'Expense', amount: 5000, category: 'Labor Advance', project: 'General', date: '2026-04-15', description: 'Advance given to Rajesh Kumar' },
 ];
 
 export const DASHBOARD_STATS = {

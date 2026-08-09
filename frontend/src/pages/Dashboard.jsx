@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useMemo } from 'react';
 import { 
   Users, Package, IndianRupee, TrendingDown, AlertTriangle,

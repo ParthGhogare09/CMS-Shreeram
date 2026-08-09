@@ -1,3 +1,4 @@
+-- Basic demo command
 CREATE DATABASE IF NOT EXISTS construction_cms;
 USE construction_cms;
 

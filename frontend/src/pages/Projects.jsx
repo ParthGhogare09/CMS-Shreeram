@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw, Briefcase, CheckCircle, IndianRupee, FileText } from 'lucide-react';

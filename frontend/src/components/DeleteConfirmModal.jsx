@@ -1,3 +1,4 @@
+// Basic demo command
 import React, { useState } from 'react';
 import { AlertTriangle, Trash2, Archive, X } from 'lucide-react';
 

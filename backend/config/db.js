@@ -1,3 +1,4 @@
+// Basic demo command
 const mongoose = require('mongoose');
 
 // Disable command buffering so queries fail immediately if MongoDB is unreachable

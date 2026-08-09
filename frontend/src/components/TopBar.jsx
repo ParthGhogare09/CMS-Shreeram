@@ -1,3 +1,4 @@
+// Basic demo command
 import React from 'react';
 import { Menu } from 'lucide-react';
 
