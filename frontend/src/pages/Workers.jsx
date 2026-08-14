@@ -79,6 +79,7 @@ const Workers = () => {
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [showConfirmPayoutModal, setShowConfirmPayoutModal] = useState(false);
   const [payoutDeductAdvance, setPayoutDeductAdvance] = useState(true);
+  const [isSavingAdvance, setIsSavingAdvance] = useState(false);
   const [currentWorker, setCurrentWorker] = useState({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active', advance: 0 });
 
   // Modals state for Log
@@ -176,9 +177,17 @@ const Workers = () => {
       alert('Please enter a valid positive advance amount.');
       return;
     }
-    await addWorkerAdvanceAction(currentWorker.id || currentWorker._id, amt);
-    setShowAddAdvance(false);
-    setAdvanceAmount('');
+    setIsSavingAdvance(true);
+    try {
+      await addWorkerAdvanceAction(currentWorker.id || currentWorker._id, amt);
+      alert(`Successfully added ₹${amt.toLocaleString('en-IN')} advance money to ${currentWorker.name}.`);
+      setShowAddAdvance(false);
+      setAdvanceAmount('');
+    } catch (err) {
+      console.error('Error saving worker advance balance:', err);
+    } finally {
+      setIsSavingAdvance(false);
+    }
   };
 
   const handleSaveLog = (e) => {
@@ -1440,7 +1449,19 @@ const Workers = () => {
                 <button type="button" className="btn btn-secondary" onClick={() => {
                   setShowAddAdvance(false);
                 }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}>Add Advance</button>
+                <button 
+                  type="submit" 
+                  disabled={isSavingAdvance} 
+                  className="btn btn-primary" 
+                  style={{ 
+                    backgroundColor: '#10b981', 
+                    borderColor: '#10b981', 
+                    opacity: isSavingAdvance ? 0.6 : 1, 
+                    cursor: isSavingAdvance ? 'not-allowed' : 'pointer' 
+                  }}
+                >
+                  {isSavingAdvance ? 'Saving...' : 'Add Advance'}
+                </button>
               </div>
             </form>
           </div>

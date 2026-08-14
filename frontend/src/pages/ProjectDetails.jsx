@@ -213,6 +213,9 @@ const ProjectDetails = () => {
   const workingDays = new Set(laborLogs.map(l => l.date)).size;
   const toReceive = project.budget - (project.collected || 0);
 
+  const projectedProfit = project.budget - totalLocalSpent;
+  const isProfit = projectedProfit >= 0;
+
   return (
     <div className="project-details-container">
       <div className="page-header">
@@ -287,6 +290,20 @@ const ProjectDetails = () => {
           <div className="stat-content">
             <h3>Working Days</h3>
             <div className="value" style={{ color: '#8b5cf6' }}>{workingDays}</div>
+          </div>
+        </div>
+        <div className="card stat-card" style={{ 
+          backgroundColor: isProfit ? '#f0fdf4' : '#fef2f2', 
+          borderColor: isProfit ? '#d1fae5' : '#fee2e2' 
+        }}>
+          <div className="stat-content">
+            <h3>{isProfit ? 'Projected Profit' : 'Projected Loss'}</h3>
+            <div className={`value ${isProfit ? 'text-success' : 'text-danger'}`} style={{ fontWeight: 'bold' }}>
+              {formatRupee(Math.abs(projectedProfit))}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+              Cash Flow: {formatRupee((project.collected || 0) - totalLocalSpent)}
+            </div>
           </div>
         </div>
       </div>
