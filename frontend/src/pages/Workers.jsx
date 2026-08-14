@@ -79,7 +79,7 @@ const Workers = () => {
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [showConfirmPayoutModal, setShowConfirmPayoutModal] = useState(false);
   const [payoutDeductAdvance, setPayoutDeductAdvance] = useState(true);
-  const [currentWorker, setCurrentWorker] = useState({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
+  const [currentWorker, setCurrentWorker] = useState({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active', advance: 0 });
 
   // Modals state for Log
   const [showAddLog, setShowAddLog] = useState(false);
@@ -144,10 +144,11 @@ const Workers = () => {
       role: normalizeTitleCase(currentWorker.role),
       wage: Number(currentWorker.wage),
       contact: currentWorker.contact,
-      status: currentWorker.status
+      status: currentWorker.status,
+      advance: Number(currentWorker.advance) || 0
     });
     setShowAddWorker(false);
-    setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
+    setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active', advance: 0 });
   };
 
   const handleEditWorker = (e) => {
@@ -161,10 +162,11 @@ const Workers = () => {
       role: normalizeTitleCase(currentWorker.role),
       wage: Number(currentWorker.wage),
       contact: currentWorker.contact,
-      status: currentWorker.status
+      status: currentWorker.status,
+      advance: Number(currentWorker.advance) || 0
     });
     setShowEditWorker(false);
-    setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active' });
+    setCurrentWorker({ id: '', name: '', role: 'Helper', wage: '', contact: '', status: 'Active', advance: 0 });
   };
 
   const handleSaveAdvance = async (e) => {
@@ -1383,6 +1385,10 @@ const Workers = () => {
               <div className="form-group">
                 <label>Contact Number</label>
                 <input required type="text" value={currentWorker.contact} onChange={e => setCurrentWorker({...currentWorker, contact: e.target.value})} placeholder="e.g. 9876543210" />
+              </div>
+              <div className="form-group">
+                <label>Advance Balance (₹)</label>
+                <input type="number" min="0" value={currentWorker.advance || ''} onChange={e => setCurrentWorker({...currentWorker, advance: e.target.value})} placeholder="e.g. 0" />
               </div>
               {showEditWorker && (
                 <div className="form-group">
