@@ -89,6 +89,10 @@ const Workers = () => {
 
   // Daily Log state
   const [filterDate, setFilterDate] = useState('');
+  const [filterMode, setFilterMode] = useState('single'); // 'single' | 'month' | 'range'
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [filterProject, setFilterProject] = useState('');
 
   // Worker Lookup state
@@ -474,14 +478,29 @@ const Workers = () => {
 
   const renderDailyLog = () => {
     const filteredLogs = dailyLogs.filter(log => {
-      const matchesDate = filterDate === '' || log.date === filterDate;
+      let matchesDate = true;
+      if (filterMode === 'single') {
+        matchesDate = filterDate === '' || log.date === filterDate;
+      } else if (filterMode === 'month') {
+        matchesDate = filterMonth === '' || (log.date && log.date.substring(0, 7) === filterMonth);
+      } else if (filterMode === 'range') {
+        const matchesStart = filterStartDate === '' || log.date >= filterStartDate;
+        const matchesEnd = filterEndDate === '' || log.date <= filterEndDate;
+        matchesDate = matchesStart && matchesEnd;
+      }
+
       const matchesProject = filterProject === '' || log.project === filterProject;
       const matchesSearch = logSearch === '' || log.name.toLowerCase().includes(logSearch.toLowerCase());
       const matchesPayment = paymentStatusFilter === 'All' || log.paymentStatus === paymentStatusFilter;
       return matchesDate && matchesProject && matchesSearch && matchesPayment;
     });
 
-    const isLogFiltered = filterDate !== '' || filterProject !== '' || paymentStatusFilter !== 'All';
+    const isLogFiltered = 
+      (filterMode === 'single' && filterDate !== '') ||
+      (filterMode === 'month' && filterMonth !== '') ||
+      (filterMode === 'range' && (filterStartDate !== '' || filterEndDate !== '')) ||
+      filterProject !== '' || 
+      paymentStatusFilter !== 'All';
 
     return (
       <div className="card">
@@ -496,6 +515,96 @@ const Workers = () => {
                 suggestions={workers.map(w => w.name)}
               />
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <select
+                value={filterMode}
+                onChange={e => setFilterMode(e.target.value)}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="single">Single Date</option>
+                <option value="month">By Month</option>
+                <option value="range">Date Range</option>
+              </select>
+
+              {filterMode === 'single' && (
+                <input 
+                  type="date" 
+                  value={filterDate} 
+                  onChange={e => setFilterDate(e.target.value)} 
+                  style={{ 
+                    padding: '0.35rem 0.5rem', 
+                    borderRadius: '6px', 
+                    border: '1px solid var(--border-color)', 
+                    backgroundColor: 'var(--color-bg-card)', 
+                    color: 'var(--color-text)',
+                    fontSize: '0.85rem',
+                    height: '34px'
+                  }} 
+                />
+              )}
+
+              {filterMode === 'month' && (
+                <input 
+                  type="month" 
+                  value={filterMonth} 
+                  onChange={e => setFilterMonth(e.target.value)} 
+                  style={{ 
+                    padding: '0.35rem 0.5rem', 
+                    borderRadius: '6px', 
+                    border: '1px solid var(--border-color)', 
+                    backgroundColor: 'var(--color-bg-card)', 
+                    color: 'var(--color-text)',
+                    fontSize: '0.85rem',
+                    height: '34px'
+                  }} 
+                />
+              )}
+
+              {filterMode === 'range' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input 
+                    type="date" 
+                    value={filterStartDate} 
+                    onChange={e => setFilterStartDate(e.target.value)} 
+                    placeholder="Start Date"
+                    style={{ 
+                      padding: '0.35rem 0.5rem', 
+                      borderRadius: '6px', 
+                      border: '1px solid var(--border-color)', 
+                      backgroundColor: 'var(--color-bg-card)', 
+                      color: 'var(--color-text)',
+                      fontSize: '0.85rem',
+                      height: '34px'
+                    }} 
+                  />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>to</span>
+                  <input 
+                    type="date" 
+                    value={filterEndDate} 
+                    onChange={e => setFilterEndDate(e.target.value)} 
+                    placeholder="End Date"
+                    style={{ 
+                      padding: '0.35rem 0.5rem', 
+                      borderRadius: '6px', 
+                      border: '1px solid var(--border-color)', 
+                      backgroundColor: 'var(--color-bg-card)', 
+                      color: 'var(--color-text)',
+                      fontSize: '0.85rem',
+                      height: '34px'
+                    }} 
+                  />
+                </div>
+              )}
+            </div>
             <div className="action-toolbar-buttons">
               <button 
                 className={`btn btn-secondary ${isLogFiltered ? 'btn-filter-active' : ''}`}
@@ -509,7 +618,7 @@ const Workers = () => {
                 <button 
                   className="btn btn-secondary text-danger" 
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                  onClick={() => { setFilterDate(''); setFilterProject(''); setPaymentStatusFilter('All'); }}
+                  onClick={() => { setFilterDate(''); setFilterMonth(''); setFilterStartDate(''); setFilterEndDate(''); setFilterMode('single'); setFilterProject(''); setPaymentStatusFilter('All'); }}
                   title="Reset Filters"
                 >
                   <RotateCcw size={13} /> Reset
@@ -544,7 +653,15 @@ const Workers = () => {
                     totalPending: totalPendingAll,
                     uniqueWorkers: new Set(filteredLogs.map(l => l.workerId)).size
                   };
-                  exportToExcel(exportData, 'Daily_Attendance_Logs');
+                  let sheetName = 'Daily_Attendance_Logs';
+                  if (filterMode === 'single' && filterDate) {
+                    sheetName = `Daily_Attendance_Logs_${filterDate}`;
+                  } else if (filterMode === 'month' && filterMonth) {
+                    sheetName = `Daily_Attendance_Logs_${filterMonth}`;
+                  } else if (filterMode === 'range' && (filterStartDate || filterEndDate)) {
+                    sheetName = `Daily_Attendance_Logs_${filterStartDate || 'start'}_to_${filterEndDate || 'end'}`;
+                  }
+                  exportToExcel(exportData, sheetName);
                 }}
               >
                 <Download size={14} /> Export Excel
@@ -568,15 +685,47 @@ const Workers = () => {
           onClose={() => setShowLogFilterModal(false)}
           onReset={() => {
             setFilterDate('');
+            setFilterMonth('');
+            setFilterStartDate('');
+            setFilterEndDate('');
+            setFilterMode('single');
             setFilterProject('');
             setPaymentStatusFilter('All');
           }}
           title="Filter Daily Attendance Logs"
         >
           <div className="form-group">
-            <label>Filter Date</label>
-            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+            <label>Filter Type</label>
+            <select value={filterMode} onChange={e => setFilterMode(e.target.value)}>
+              <option value="single">Single Date</option>
+              <option value="month">By Month</option>
+              <option value="range">Date Range</option>
+            </select>
           </div>
+          {filterMode === 'single' && (
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label>Select Date</label>
+              <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+            </div>
+          )}
+          {filterMode === 'month' && (
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label>Select Month</label>
+              <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} />
+            </div>
+          )}
+          {filterMode === 'range' && (
+            <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label>Start Date</label>
+                <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>End Date</label>
+                <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} />
+              </div>
+            </div>
+          )}
           <div className="form-group" style={{ marginTop: '1rem' }}>
             <label>Project Site</label>
             <select value={filterProject} onChange={e => setFilterProject(e.target.value)}>
