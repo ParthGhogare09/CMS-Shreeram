@@ -17,11 +17,16 @@ const Login = () => {
     setErrorMsg('');
 
     // Simulate network delay for a premium experience
-    setTimeout(() => {
-      const success = loginAction(username, password);
-      setIsSubmitting(false);
-      if (!success) {
-        setErrorMsg('Invalid username or password!');
+    setTimeout(async () => {
+      try {
+        const success = await loginAction(username, password);
+        setIsSubmitting(false);
+        if (!success) {
+          setErrorMsg('Invalid username or password!');
+        }
+      } catch (err) {
+        setIsSubmitting(false);
+        setErrorMsg('Login failed: ' + err.message);
       }
     }, 800);
   };

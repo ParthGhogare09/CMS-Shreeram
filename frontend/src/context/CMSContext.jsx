@@ -7,11 +7,12 @@ import {
   getMaterials, saveMaterial, editMaterialBatch, deleteMaterialBatch, getMaterialUsage, logMaterialUsage,
   getFinances, addIncome, updateIncome, getDashboardStats,
   deleteProject, deleteWorker, deleteWorkerLog,
-  deleteMaterial, deleteMaterialUsage, deleteFinance
+  deleteMaterial, deleteMaterialUsage, deleteFinance,
+  getSessions, createSession, logoutSession
 } from '../api';
 import {
   MOCK_PROJECTS, MOCK_WORKERS, MOCK_DAILY_LOGS, MOCK_MATERIALS,
-  MOCK_MATERIAL_USAGE, MOCK_FINANCES, EXPENSE_DATA,
+  MOCK_MATERIAL_USAGE, MOCK_FINANCES, EXPENSE_DATA, MOCK_SESSIONS,
   addProjectMock, addProjectLogMock
 } from '../mockData';
 import { getBatchLabels } from '../utils';
@@ -35,6 +36,33 @@ const getOwners = () => {
   return DEFAULT_OWNERS;
 };
 
+const getDeviceDetails = () => {
+  if (typeof navigator === 'undefined') return 'Unknown Device';
+  const ua = navigator.userAgent;
+  let device = 'Desktop PC';
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) {
+    if (/iPhone/i.test(ua)) device = 'iPhone';
+    else if (/iPad/i.test(ua)) device = 'iPad';
+    else if (/Android/i.test(ua)) device = 'Android Mobile';
+    else device = 'Mobile Device';
+  } else if (/Macintosh/i.test(ua)) {
+    device = 'Mac Desktop';
+  } else if (/Windows/i.test(ua)) {
+    device = 'Windows PC';
+  } else if (/Linux/i.test(ua)) {
+    device = 'Linux PC';
+  }
+  
+  let browser = 'Unknown Browser';
+  if (ua.indexOf('Chrome') > -1) browser = 'Chrome';
+  else if (ua.indexOf('Safari') > -1) browser = 'Safari';
+  else if (ua.indexOf('Firefox') > -1) browser = 'Firefox';
+  else if (ua.indexOf('MSIE') > -1 || !!document.documentMode) browser = 'IE';
+  else if (ua.indexOf('Edge') > -1) browser = 'Edge';
+
+  return `${device} (${browser})`;
+};
+
 export const CMSProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('shreeram_auth') === 'true';
@@ -48,7 +76,7 @@ export const CMSProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(true);
 
-  const loginAction = (username, password) => {
+  const loginAction = async (username, password) => {
     const ownerList = getOwners();
     const match = ownerList.find(o => o.username === username && o.password === password);
     if (match) {
@@ -56,16 +84,68 @@ export const CMSProvider = ({ children }) => {
       localStorage.setItem('shreeram_current_owner', match.displayName);
       setIsAuthenticated(true);
       setCurrentOwner(match.displayName);
+      
+      const device = getDeviceDetails();
+      try {
+        const sessionRes = await createSession({ username, displayName: match.displayName, device });
+        const sessionId = sessionRes.data.id || sessionRes.data._id;
+        localStorage.setItem('shreeram_session_id', sessionId);
+      } catch (err) {
+        console.warn('Backend session registration failed, adding local mock session:', err.message);
+        const newId = Date.now().toString();
+        MOCK_SESSIONS.unshift({
+          id: newId,
+          username,
+          displayName: match.displayName,
+          device,
+          ipAddress: '127.0.0.1',
+          loginTime: new Date().toISOString(),
+          logoutTime: null,
+          status: 'Active'
+        });
+        localStorage.setItem('shreeram_session_id', newId);
+      }
+      await fetchData(false);
       return true;
     }
     return false;
   };
 
-  const logoutAction = () => {
+  const logoutAction = async () => {
+    const sessionId = localStorage.getItem('shreeram_session_id');
+    if (sessionId) {
+      try {
+        await logoutSession(sessionId);
+      } catch (err) {
+        console.warn('Backend session logout failed, updating local mock session:', err.message);
+        const mockSess = MOCK_SESSIONS.find(s => s.id.toString() === sessionId.toString());
+        if (mockSess) {
+          mockSess.status = 'Logged Out';
+          mockSess.logoutTime = new Date().toISOString();
+        }
+      }
+      localStorage.removeItem('shreeram_session_id');
+    }
     localStorage.removeItem('shreeram_auth');
     localStorage.removeItem('shreeram_current_owner');
     setIsAuthenticated(false);
     setCurrentOwner('');
+    await fetchData(false);
+  };
+
+  const terminateSessionAction = async (sessionId) => {
+    try {
+      await logoutSession(sessionId);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend session termination failed, updating local mock session:', err.message);
+      const mockSess = MOCK_SESSIONS.find(s => s.id.toString() === sessionId.toString());
+      if (mockSess) {
+        mockSess.status = 'Logged Out';
+        mockSess.logoutTime = new Date().toISOString();
+      }
+      await fetchData(false);
+    }
   };
 
   const saveOwnersAction = (newOwners) => {
@@ -77,6 +157,7 @@ export const CMSProvider = ({ children }) => {
   const [dailyLogs, setDailyLogs] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [usageLogs, setUsageLogs] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [finances, setFinances] = useState({
     incomes: [],
     advances: [],
@@ -103,7 +184,8 @@ export const CMSProvider = ({ children }) => {
         materialsRes,
         usageRes,
         financesRes,
-        dashboardRes
+        dashboardRes,
+        sessionsRes
       ] = await Promise.all([
         getProjects(),
         getWorkers(),
@@ -111,7 +193,8 @@ export const CMSProvider = ({ children }) => {
         getMaterials(),
         getMaterialUsage(),
         getFinances(),
-        getDashboardStats()
+        getDashboardStats(),
+        getSessions()
       ]);
 
       setProjects(projectsRes.data);
@@ -121,6 +204,7 @@ export const CMSProvider = ({ children }) => {
       setUsageLogs(usageRes.data);
       setFinances(financesRes.data);
       setDashboardStats(dashboardRes.data);
+      setSessions(sessionsRes.data);
       setLoading(false);
     } catch (err) {
       console.warn('Backend server unreachable. Cascading fallback to local mock data caches:', err.message);
@@ -140,6 +224,9 @@ export const CMSProvider = ({ children }) => {
 
       // 5. UsageLogs
       setUsageLogs([...MOCK_MATERIAL_USAGE]);
+
+      // 5b. Sessions
+      setSessions([...MOCK_SESSIONS]);
 
       // 6. Finances fallback calculations
       const totalBudget = MOCK_PROJECTS.reduce((acc, p) => acc + p.budget, 0);
@@ -246,6 +333,33 @@ export const CMSProvider = ({ children }) => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchData(true);
+      // Auto-register session if missing (e.g. on page refresh)
+      const storedSessionId = localStorage.getItem('shreeram_session_id');
+      if (!storedSessionId && currentOwner) {
+        const username = currentOwner.toLowerCase().replace(/\s+/g, '');
+        const device = getDeviceDetails();
+        createSession({ username, displayName: currentOwner, device })
+          .then(res => {
+            const sessionId = res.data.id || res.data._id;
+            localStorage.setItem('shreeram_session_id', sessionId);
+            fetchData(false);
+          })
+          .catch(e => {
+            const newId = Date.now().toString();
+            MOCK_SESSIONS.unshift({
+              id: newId,
+              username,
+              displayName: currentOwner,
+              device,
+              ipAddress: '127.0.0.1',
+              loginTime: new Date().toISOString(),
+              logoutTime: null,
+              status: 'Active'
+            });
+            localStorage.setItem('shreeram_session_id', newId);
+            fetchData(false);
+          });
+      }
     } else {
       setLoading(false);
     }
@@ -934,7 +1048,9 @@ export const CMSProvider = ({ children }) => {
       logoutAction,
       currentOwner,
       owners,
-      saveOwnersAction
+      saveOwnersAction,
+      sessions,
+      terminateSessionAction
     }}>
       {children}
     </CMSContext.Provider>

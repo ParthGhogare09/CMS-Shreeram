@@ -1,10 +1,10 @@
 // Basic demo command
 import React, { useState } from 'react';
-import { Users, Plus, Trash2, Edit, Save, X, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
+import { Users, Plus, Trash2, Edit, Save, X, Eye, EyeOff, ShieldCheck, KeyRound, Smartphone, Monitor, Globe, Activity, LogOut, History } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 
 const Settings = () => {
-  const { owners, saveOwnersAction, currentOwner } = useCMS();
+  const { owners, saveOwnersAction, currentOwner, sessions, terminateSessionAction } = useCMS();
 
   // ─── Add Owner Modal ─────────────────────────────────────────────────────────
   const [showAddModal, setShowAddModal] = useState(false);
@@ -201,6 +201,141 @@ const Settings = () => {
             <KeyRound size={12} style={{ display: 'inline', marginRight: '4px' }} />
             Credentials are stored locally in the browser. All owners can log in from the login screen with their own username & password.
           </p>
+        </div>
+
+        {/* ── Active Sessions & Device Tracking Card ────────────────────── */}
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <Activity size={24} color="var(--color-success)" />
+            <h2 className="card-title" style={{ margin: 0 }}>Active Device Sessions</h2>
+          </div>
+
+          <div style={{ overflowX: 'auto', marginBottom: '2rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' }}>User</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' }}>Device / Browser</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' }}>IP Address</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' }}>Login Time</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.filter(s => s.status === 'Active').length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                      No active sessions found.
+                    </td>
+                  </tr>
+                ) : (
+                  sessions.filter(s => s.status === 'Active').map((sess) => {
+                    const isCurrent = (sess.id || sess._id || '').toString() === (localStorage.getItem('shreeram_session_id') || '').toString();
+                    return (
+                      <tr key={sess.id || sess._id} style={{ borderBottom: '1px solid var(--color-border)', background: isCurrent ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
+                        <td style={{ padding: '0.75rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                          <div>{sess.displayName}</div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 400 }}>@{sess.username}</span>
+                        </td>
+                        <td style={{ padding: '0.75rem', color: 'var(--color-text)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {sess.device.toLowerCase().includes('iphone') || sess.device.toLowerCase().includes('android') || sess.device.toLowerCase().includes('mobile') || sess.device.toLowerCase().includes('phone') || sess.device.toLowerCase().includes('ipad') ? (
+                              <Smartphone size={18} color="var(--color-primary)" />
+                            ) : (
+                              <Monitor size={18} color="var(--color-info)" />
+                            )}
+                            <span>{sess.device}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <Globe size={13} />
+                            <code>{sess.ipAddress}</code>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.75rem', color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>
+                          {new Date(sess.loginTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                          {isCurrent ? (
+                            <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>This Device</span>
+                          ) : (
+                            <button
+                              className="btn"
+                              style={{ 
+                                padding: '0.25rem 0.5rem', 
+                                fontSize: '0.72rem', 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '3px',
+                                background: 'rgba(239,68,68,0.08)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239,68,68,0.2)'
+                              }}
+                              onClick={() => terminateSessionAction(sess.id || sess._id)}
+                            >
+                              <LogOut size={12} /> Terminate
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.2rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
+            <History size={20} color="var(--color-text-secondary)" />
+            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text)' }}>Device Login History</h3>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>User</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>Device</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>IP</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>Login</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>Logout</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.slice(0, 10).map((sess) => (
+                  <tr key={sess.id || sess._id} style={{ borderBottom: '1px dashed var(--color-border)' }}>
+                    <td style={{ padding: '0.5rem', color: 'var(--color-text)' }}>{sess.displayName}</td>
+                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>{sess.device}</td>
+                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}><code>{sess.ipAddress}</code></td>
+                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                      {new Date(sess.loginTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} ({new Date(sess.loginTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })})
+                    </td>
+                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                      {sess.logoutTime 
+                        ? `${new Date(sess.logoutTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} (${new Date(sess.logoutTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })})`
+                        : '—'
+                      }
+                    </td>
+                    <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                      <span style={{ 
+                        display: 'inline-block',
+                        padding: '1px 8px',
+                        borderRadius: '10px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        backgroundColor: sess.status === 'Active' ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.12)',
+                        color: sess.status === 'Active' ? '#10b981' : 'var(--color-text-secondary)'
+                      }}>
+                        {sess.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
