@@ -10,6 +10,7 @@ const WorkerLog = require('../models/WorkerLog');
 const Material = require('../models/Material');
 const MaterialUsage = require('../models/MaterialUsage');
 const Finance = require('../models/Finance');
+const SessionLog = require('../models/SessionLog');
 
 // Helper: Find material by ID or Name (case-insensitive)
 async function resolveMaterial(materialRef) {
@@ -1844,6 +1845,53 @@ router.delete('/finances/:id', async (req, res) => {
     const record = await Finance.findByIdAndDelete(req.params.id);
     if (!record) return res.status(404).json({ error: 'Finance record not found' });
     res.json({ message: 'Finance record deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// 8. SESSION TRACKING ENDPOINTS
+// ==========================================
+router.get('/sessions', async (req, res) => {
+  try {
+    const sessions = await SessionLog.find().sort({ loginTime: -1 });
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/sessions/login', async (req, res) => {
+  try {
+    const { username, displayName, device } = req.body;
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    
+    const newSession = new SessionLog({
+      username,
+      displayName,
+      device: device || 'Unknown Device',
+      ipAddress,
+      status: 'Active'
+    });
+    
+    await newSession.save();
+    res.status(201).json(newSession);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/sessions/logout/:id', async (req, res) => {
+  try {
+    const session = await SessionLog.findById(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    
+    session.status = 'Logged Out';
+    session.logoutTime = new Date();
+    await session.save();
+    
+    res.json(session);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
