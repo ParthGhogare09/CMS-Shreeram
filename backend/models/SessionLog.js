@@ -25,6 +25,10 @@ const SessionLogSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  lastActive: {
+    type: Date,
+    default: Date.now
+  },
   status: {
     type: String,
     enum: ['Active', 'Logged Out'],

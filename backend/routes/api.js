@@ -1855,6 +1855,13 @@ router.delete('/finances/:id', async (req, res) => {
 // ==========================================
 router.get('/sessions', async (req, res) => {
   try {
+    const timeoutLimit = new Date(Date.now() - 90 * 1000); // 90 seconds ago
+    // Auto-expire sessions that missed heartbeats
+    await SessionLog.updateMany(
+      { status: 'Active', lastActive: { $lt: timeoutLimit } },
+      { $set: { status: 'Logged Out', logoutTime: new Date() } }
+    );
+
     const sessions = await SessionLog.find().sort({ loginTime: -1 });
     res.json(sessions);
   } catch (error) {
@@ -1867,12 +1874,19 @@ router.post('/sessions/login', async (req, res) => {
     const { username, displayName, device } = req.body;
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     
+    // Auto-expire older active sessions for the same user and device
+    await SessionLog.updateMany(
+      { username, device, status: 'Active' },
+      { $set: { status: 'Logged Out', logoutTime: new Date() } }
+    );
+
     const newSession = new SessionLog({
       username,
       displayName,
       device: device || 'Unknown Device',
       ipAddress,
-      status: 'Active'
+      status: 'Active',
+      lastActive: new Date()
     });
     
     await newSession.save();
@@ -1892,6 +1906,39 @@ router.post('/sessions/logout/:id', async (req, res) => {
     await session.save();
     
     res.json(session);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/sessions/ping/:id', async (req, res) => {
+  try {
+    const session = await SessionLog.findById(req.params.id);
+    if (session) {
+      session.lastActive = new Date();
+      session.status = 'Active';
+      await session.save();
+    }
+    res.sendStatus(200);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/sessions/history/clear', async (req, res) => {
+  try {
+    await SessionLog.deleteMany({ status: 'Logged Out' });
+    res.json({ message: 'Login history cleared successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const session = await SessionLog.findByIdAndDelete(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json({ message: 'Session deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
