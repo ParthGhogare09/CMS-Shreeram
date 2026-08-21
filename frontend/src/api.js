@@ -45,5 +45,8 @@ export const deleteFinance = (id) => API.delete(`/finances/${id}`);
 export const getSessions = () => API.get('/sessions');
 export const createSession = (sessionData) => API.post('/sessions/login', sessionData);
 export const logoutSession = (id) => API.post(`/sessions/logout/${id}`);
+export const pingSession = (id) => API.post(`/sessions/ping/${id}`);
+export const clearSessionHistory = () => API.delete('/sessions/history/clear');
+export const deleteSession = (id) => API.delete(`/sessions/${id}`);
 
 export default API;

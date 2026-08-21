@@ -8,7 +8,7 @@ import {
   getFinances, addIncome, updateIncome, getDashboardStats,
   deleteProject, deleteWorker, deleteWorkerLog,
   deleteMaterial, deleteMaterialUsage, deleteFinance,
-  getSessions, createSession, logoutSession
+  getSessions, createSession, logoutSession, pingSession, clearSessionHistory, deleteSession
 } from '../api';
 import {
   MOCK_PROJECTS, MOCK_WORKERS, MOCK_DAILY_LOGS, MOCK_MATERIALS,
@@ -92,6 +92,14 @@ export const CMSProvider = ({ children }) => {
         localStorage.setItem('shreeram_session_id', sessionId);
       } catch (err) {
         console.warn('Backend session registration failed, adding local mock session:', err.message);
+        
+        MOCK_SESSIONS.forEach(s => {
+          if (s.username === username && s.device === device && s.status === 'Active') {
+            s.status = 'Logged Out';
+            s.logoutTime = new Date().toISOString();
+          }
+        });
+
         const newId = Date.now().toString();
         MOCK_SESSIONS.unshift({
           id: newId,
@@ -101,6 +109,7 @@ export const CMSProvider = ({ children }) => {
           ipAddress: '127.0.0.1',
           loginTime: new Date().toISOString(),
           logoutTime: null,
+          lastActive: new Date().toISOString(),
           status: 'Active'
         });
         localStorage.setItem('shreeram_session_id', newId);
@@ -143,6 +152,35 @@ export const CMSProvider = ({ children }) => {
       if (mockSess) {
         mockSess.status = 'Logged Out';
         mockSess.logoutTime = new Date().toISOString();
+      }
+      await fetchData(false);
+    }
+  };
+
+  const clearSessionHistoryAction = async () => {
+    try {
+      await clearSessionHistory();
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend clearSessionHistory failed, clearing mock logged out sessions:', err.message);
+      for (let i = MOCK_SESSIONS.length - 1; i >= 0; i--) {
+        if (MOCK_SESSIONS[i].status === 'Logged Out') {
+          MOCK_SESSIONS.splice(i, 1);
+        }
+      }
+      await fetchData(false);
+    }
+  };
+
+  const deleteSessionAction = async (sessionId) => {
+    try {
+      await deleteSession(sessionId);
+      await fetchData(false);
+    } catch (err) {
+      console.warn('Backend deleteSession failed, removing mock session:', err.message);
+      const sIdx = MOCK_SESSIONS.findIndex(s => s.id.toString() === sessionId.toString());
+      if (sIdx !== -1) {
+        MOCK_SESSIONS.splice(sIdx, 1);
       }
       await fetchData(false);
     }
@@ -226,6 +264,13 @@ export const CMSProvider = ({ children }) => {
       setUsageLogs([...MOCK_MATERIAL_USAGE]);
 
       // 5b. Sessions
+      const timeoutLimit = Date.now() - 90 * 1000;
+      MOCK_SESSIONS.forEach(s => {
+        if (s.status === 'Active' && s.lastActive && new Date(s.lastActive).getTime() < timeoutLimit) {
+          s.status = 'Logged Out';
+          s.logoutTime = new Date().toISOString();
+        }
+      });
       setSessions([...MOCK_SESSIONS]);
 
       // 6. Finances fallback calculations
@@ -345,6 +390,13 @@ export const CMSProvider = ({ children }) => {
             fetchData(false);
           })
           .catch(e => {
+            MOCK_SESSIONS.forEach(s => {
+              if (s.username === username && s.device === device && s.status === 'Active') {
+                s.status = 'Logged Out';
+                s.logoutTime = new Date().toISOString();
+              }
+            });
+
             const newId = Date.now().toString();
             MOCK_SESSIONS.unshift({
               id: newId,
@@ -354,6 +406,7 @@ export const CMSProvider = ({ children }) => {
               ipAddress: '127.0.0.1',
               loginTime: new Date().toISOString(),
               logoutTime: null,
+              lastActive: new Date().toISOString(),
               status: 'Active'
             });
             localStorage.setItem('shreeram_session_id', newId);
@@ -363,6 +416,39 @@ export const CMSProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const interval = setInterval(() => {
+      const sessionId = localStorage.getItem('shreeram_session_id');
+      if (sessionId) {
+        pingSession(sessionId).catch(err => {
+          const mockSess = MOCK_SESSIONS.find(s => s.id.toString() === sessionId.toString());
+          if (mockSess) {
+            mockSess.lastActive = new Date().toISOString();
+          }
+        });
+      }
+    }, 20000);
+
+    const handleBeforeUnload = () => {
+      const sessionId = localStorage.getItem('shreeram_session_id');
+      if (sessionId) {
+        const url = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+          ? 'http://localhost:5000/api/sessions/logout/' + sessionId
+          : 'https://cms-shreeram.onrender.com/api/sessions/logout/' + sessionId;
+        navigator.sendBeacon(url);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [isAuthenticated]);
 
   // Action helpers to sync DB and background reload context state
@@ -1050,7 +1136,9 @@ export const CMSProvider = ({ children }) => {
       owners,
       saveOwnersAction,
       sessions,
-      terminateSessionAction
+      terminateSessionAction,
+      clearSessionHistoryAction,
+      deleteSessionAction
     }}>
       {children}
     </CMSContext.Provider>

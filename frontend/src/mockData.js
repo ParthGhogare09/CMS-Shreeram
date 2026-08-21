@@ -120,7 +120,7 @@ export let MOCK_MATERIAL_USAGE = [
 ];
 
 export let MOCK_SESSIONS = [
-  { id: '1', username: 'admin', displayName: 'Admin', device: 'Windows PC (Chrome)', ipAddress: '192.168.1.15', loginTime: new Date(Date.now() - 3600000).toISOString(), logoutTime: null, status: 'Active' },
-  { id: '2', username: 'owner1', displayName: 'Owner 1', device: 'iPhone (Safari)', ipAddress: '172.56.21.99', loginTime: new Date(Date.now() - 7200000).toISOString(), logoutTime: new Date(Date.now() - 1800000).toISOString(), status: 'Logged Out' },
-  { id: '3', username: 'owner2', displayName: 'Owner 2', device: 'Android Mobile (Chrome)', ipAddress: '103.88.22.41', loginTime: new Date(Date.now() - 86400000).toISOString(), logoutTime: null, status: 'Active' }
+  { id: '1', username: 'admin', displayName: 'Admin', device: 'Windows PC (Chrome)', ipAddress: '192.168.1.15', loginTime: new Date(Date.now() - 3600000).toISOString(), logoutTime: null, lastActive: new Date().toISOString(), status: 'Active' },
+  { id: '2', username: 'owner1', displayName: 'Owner 1', device: 'iPhone (Safari)', ipAddress: '172.56.21.99', loginTime: new Date(Date.now() - 7200000).toISOString(), logoutTime: new Date(Date.now() - 1800000).toISOString(), lastActive: new Date(Date.now() - 1800000).toISOString(), status: 'Logged Out' },
+  { id: '3', username: 'owner2', displayName: 'Owner 2', device: 'Android Mobile (Chrome)', ipAddress: '103.88.22.41', loginTime: new Date(Date.now() - 86400000).toISOString(), logoutTime: null, lastActive: new Date().toISOString(), status: 'Active' }
 ];

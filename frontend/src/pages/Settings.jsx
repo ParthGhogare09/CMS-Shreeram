@@ -4,7 +4,7 @@ import { Users, Plus, Trash2, Edit, Save, X, Eye, EyeOff, ShieldCheck, KeyRound,
 import { useCMS } from '../context/CMSContext';
 
 const Settings = () => {
-  const { owners, saveOwnersAction, currentOwner, sessions, terminateSessionAction } = useCMS();
+  const { owners, saveOwnersAction, currentOwner, sessions, terminateSessionAction, clearSessionHistoryAction, deleteSessionAction } = useCMS();
 
   // ─── Add Owner Modal ─────────────────────────────────────────────────────────
   const [showAddModal, setShowAddModal] = useState(false);
@@ -222,14 +222,28 @@ const Settings = () => {
                 </tr>
               </thead>
               <tbody>
-                {sessions.filter(s => s.status === 'Active').length === 0 ? (
-                  <tr>
-                    <td colSpan="5" style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                      No active sessions found.
-                    </td>
-                  </tr>
-                ) : (
-                  sessions.filter(s => s.status === 'Active').map((sess) => {
+                {(() => {
+                  const uniqueActive = [];
+                  const keys = new Set();
+                  sessions.filter(s => s.status === 'Active').forEach(s => {
+                    const key = `${s.username}-${s.device}`;
+                    if (!keys.has(key)) {
+                      keys.add(key);
+                      uniqueActive.push(s);
+                    }
+                  });
+
+                  if (uniqueActive.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="5" style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                          No active sessions found.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return uniqueActive.map((sess) => {
                     const isCurrent = (sess.id || sess._id || '').toString() === (localStorage.getItem('shreeram_session_id') || '').toString();
                     return (
                       <tr key={sess.id || sess._id} style={{ borderBottom: '1px solid var(--color-border)', background: isCurrent ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
@@ -280,15 +294,37 @@ const Settings = () => {
                         </td>
                       </tr>
                     );
-                  })
-                )}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.2rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
-            <History size={20} color="var(--color-text-secondary)" />
-            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text)' }}>Device Login History</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <History size={20} color="var(--color-text-secondary)" />
+              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text)' }}>Device Login History</h3>
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{
+                padding: '0.25rem 0.5rem',
+                fontSize: '0.72rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                background: 'rgba(239,68,68,0.08)',
+                color: '#ef4444',
+                border: '1px solid rgba(239,68,68,0.2)'
+              }}
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear all logged out history?")) {
+                  clearSessionHistoryAction();
+                }
+              }}
+            >
+              <Trash2 size={12} /> Clear History
+            </button>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -301,38 +337,60 @@ const Settings = () => {
                   <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>Login</th>
                   <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--color-text-secondary)' }}>Logout</th>
                   <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Status</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {sessions.slice(0, 10).map((sess) => (
-                  <tr key={sess.id || sess._id} style={{ borderBottom: '1px dashed var(--color-border)' }}>
-                    <td style={{ padding: '0.5rem', color: 'var(--color-text)' }}>{sess.displayName}</td>
-                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>{sess.device}</td>
-                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}><code>{sess.ipAddress}</code></td>
-                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>
-                      {new Date(sess.loginTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} ({new Date(sess.loginTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })})
-                    </td>
-                    <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>
-                      {sess.logoutTime 
-                        ? `${new Date(sess.logoutTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} (${new Date(sess.logoutTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })})`
-                        : '—'
-                      }
-                    </td>
-                    <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                      <span style={{ 
-                        display: 'inline-block',
-                        padding: '1px 8px',
-                        borderRadius: '10px',
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        backgroundColor: sess.status === 'Active' ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.12)',
-                        color: sess.status === 'Active' ? '#10b981' : 'var(--color-text-secondary)'
-                      }}>
-                        {sess.status}
-                      </span>
+                {sessions.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                      No session history found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  sessions.slice(0, 15).map((sess) => (
+                    <tr key={sess.id || sess._id} style={{ borderBottom: '1px dashed var(--color-border)' }}>
+                      <td style={{ padding: '0.5rem', color: 'var(--color-text)' }}>{sess.displayName}</td>
+                      <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>{sess.device}</td>
+                      <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}><code>{sess.ipAddress}</code></td>
+                      <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                        {new Date(sess.loginTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} ({new Date(sess.loginTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })})
+                      </td>
+                      <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                        {sess.logoutTime 
+                          ? `${new Date(sess.logoutTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} (${new Date(sess.logoutTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })})`
+                          : '—'
+                        }
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <span style={{ 
+                          display: 'inline-block',
+                          padding: '1px 8px',
+                          borderRadius: '10px',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          backgroundColor: sess.status === 'Active' ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.12)',
+                          color: sess.status === 'Active' ? '#10b981' : 'var(--color-text-secondary)'
+                        }}>
+                          {sess.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <button
+                          className="icon-btn"
+                          style={{ color: '#ef4444', padding: '0.25rem' }}
+                          onClick={() => {
+                            if (window.confirm("Delete this session record?")) {
+                              deleteSessionAction(sess.id || sess._id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
