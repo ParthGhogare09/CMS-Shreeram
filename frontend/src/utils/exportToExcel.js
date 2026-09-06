@@ -152,26 +152,60 @@ const getSummaryData = (data, fileName) => {
   else if (name.includes('daily_attendance') || name.includes('attendance_log')) {
     let totalDays = 0, totalWage = 0, totalPaid = 0, totalPending = 0;
     const uniqueWorkers = new Set();
+    const presentWorkers = new Set();
+    const absentWorkers = new Set();
+    let presentCount = 0;
     const sites = new Set();
+    const dates = new Set();
+
     data.forEach(row => {
       const status = String(row['Attendance Status'] || '');
       const workTime = String(row['Work Time'] || '');
+      const worker = row['Worker Name'];
+      if (row['Date']) dates.add(String(row['Date']));
       if (status === 'Present') {
         totalDays += workTime === 'Full Day' ? 1 : workTime === 'Half Day' ? 0.5 : workTime === 'Overtime' ? 1.5 : (parseFloat(workTime) || 0);
+        if (worker) presentWorkers.add(worker);
+        presentCount++;
+      } else if (status === 'Absent' || status === 'Leave') {
+        if (worker) absentWorkers.add(worker);
       }
       totalWage    += Number(String(row['Calculated Wage (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
       totalPaid    += Number(String(row['Paid (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
       totalPending += Number(String(row['Pending (Rs.)'] || 0).replace(/[^\d.]/g, '')) || 0;
-      if (row['Worker Name']) uniqueWorkers.add(row['Worker Name']);
+      if (worker) uniqueWorkers.add(worker);
       if (row['Site / Project'] && row['Site / Project'] !== '-') sites.add(row['Site / Project']);
     });
-    summary.push(['Total Records', data.length]);
-    summary.push(['Unique Workers', uniqueWorkers.size]);
-    if (sites.size > 0 && sites.size <= 3) summary.push(['Site(s)', Array.from(sites).join(', ')]);
+
+    // Extract date filter if present in filename
+    const rangeMatch = fileName.match(/(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})/);
+    const dateMatch = fileName.match(/(\d{4}-\d{2}-\d{2})/);
+    const monthMatch = fileName.match(/(\d{4}-\d{2})(?!-\d{2})/);
+
+    if (rangeMatch) {
+      summary.push(['Selected Date Range', `${rangeMatch[1]} to ${rangeMatch[2]}`]);
+    } else if (dateMatch) {
+      summary.push(['Selected Date', dateMatch[1]]);
+    } else if (monthMatch) {
+      summary.push(['Selected Month', monthMatch[1]]);
+    } else if (dates.size === 1) {
+      summary.push(['Selected Date', Array.from(dates)[0]]);
+    }
+
+    const presentWorkersTotal = data._summaryMeta?.totalPresentWorkers !== undefined 
+      ? data._summaryMeta.totalPresentWorkers 
+      : presentWorkers.size;
+
+    summary.push(['Total Present Workers', presentWorkersTotal]);
+    if (absentWorkers.size > 0) {
+      summary.push(['Absent / Leave Workers', absentWorkers.size]);
+    }
     summary.push(['Total Days Worked', totalDays]);
+    summary.push(['Total Records', data.length]);
     summary.push(['Total Wage Incurred', 'Rs. ' + totalWage.toLocaleString('en-IN')]);
     summary.push(['Total Paid', 'Rs. ' + totalPaid.toLocaleString('en-IN')]);
     summary.push(['Total Pending', 'Rs. ' + totalPending.toLocaleString('en-IN')]);
+    if (sites.size > 0 && sites.size <= 3) summary.push(['Site(s)', Array.from(sites).join(', ')]);
   }
   // Monthly Labour Summary
   else if (name.includes('monthly_summary') || (name.includes('labour') && name.includes('summary'))) {
@@ -625,8 +659,24 @@ const generateExcelReport = async (data, fileName, keys, headers, logoBase64) =>
   const totalsRow = worksheet.getRow(currentRowIndex);
   totalsRow.height = 22;
 
+  const hasAttendanceStatus = keys.includes('Attendance Status');
+  const presentRows = hasAttendanceStatus ? data.filter(r => String(r['Attendance Status'] || '') === 'Present') : [];
+  const uniquePresentNames = hasAttendanceStatus ? new Set(presentRows.map(r => r['Worker Name'])).size : 0;
+  const totalDaysCalculated = hasAttendanceStatus ? presentRows.reduce((sum, r) => {
+    const wt = String(r['Work Time'] || '');
+    return sum + (wt === 'Full Day' ? 1 : wt === 'Half Day' ? 0.5 : wt === 'Overtime' ? 1.5 : (parseFloat(wt) || 0));
+  }, 0) : 0;
+
   const totalsData = keys.map((key, colIdx) => {
-    if (colIdx === 0) return 'Total';
+    if (colIdx === 0) {
+      return hasAttendanceStatus ? `Total (${uniquePresentNames} Present)` : 'Total';
+    }
+    if (key === 'Attendance Status') {
+      return `${presentRows.length} Present`;
+    }
+    if (key === 'Work Time' && hasAttendanceStatus) {
+      return `${totalDaysCalculated} Days`;
+    }
     if (isColumnCalculable(key, colIdx, numericColumns)) {
       let sum = 0;
       data.forEach((row) => {
@@ -821,8 +871,24 @@ const generatePdfReport = async (data, fileName, keys, headers, logoBase64) => {
   const numericColumns = getNumericColumns(keys, data);
 
   // Calculate totals
+  const hasAttendanceStatusPdf = keys.includes('Attendance Status');
+  const presentRowsPdf = hasAttendanceStatusPdf ? data.filter(r => String(r['Attendance Status'] || '') === 'Present') : [];
+  const uniquePresentNamesPdf = hasAttendanceStatusPdf ? new Set(presentRowsPdf.map(r => r['Worker Name'])).size : 0;
+  const totalDaysCalculatedPdf = hasAttendanceStatusPdf ? presentRowsPdf.reduce((sum, r) => {
+    const wt = String(r['Work Time'] || '');
+    return sum + (wt === 'Full Day' ? 1 : wt === 'Half Day' ? 0.5 : wt === 'Overtime' ? 1.5 : (parseFloat(wt) || 0));
+  }, 0) : 0;
+
   const totalsRowData = keys.map((key, colIdx) => {
-    if (colIdx === 0) return 'Total';
+    if (colIdx === 0) {
+      return hasAttendanceStatusPdf ? `Total (${uniquePresentNamesPdf} Present)` : 'Total';
+    }
+    if (key === 'Attendance Status') {
+      return `${presentRowsPdf.length} Present`;
+    }
+    if (key === 'Work Time' && hasAttendanceStatusPdf) {
+      return `${totalDaysCalculatedPdf} Days`;
+    }
     if (isColumnCalculable(key, colIdx, numericColumns)) {
       let sum = 0;
       data.forEach((row) => {

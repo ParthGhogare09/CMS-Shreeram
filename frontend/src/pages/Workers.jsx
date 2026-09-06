@@ -135,6 +135,72 @@ const Workers = () => {
     return { totalWorkers, activeWorkers, totalWagePaid, totalWageToPay, totalAdvanceGiven };
   }, [workers, dailyLogs]);
 
+  const isLogFiltered = useMemo(() => {
+    return (
+      (filterMode === 'single' && filterDate !== '') ||
+      (filterMode === 'month' && filterMonth !== '') ||
+      (filterMode === 'range' && (filterStartDate !== '' || filterEndDate !== '')) ||
+      filterProject !== '' || 
+      logSearch !== '' ||
+      paymentStatusFilter !== 'All'
+    );
+  }, [filterMode, filterDate, filterMonth, filterStartDate, filterEndDate, filterProject, logSearch, paymentStatusFilter]);
+
+  const filteredDailyLogs = useMemo(() => {
+    return dailyLogs.filter(log => {
+      let matchesDate = true;
+      if (filterMode === 'single') {
+        matchesDate = filterDate === '' || log.date === filterDate;
+      } else if (filterMode === 'month') {
+        matchesDate = filterMonth === '' || (log.date && log.date.substring(0, 7) === filterMonth);
+      } else if (filterMode === 'range') {
+        const matchesStart = filterStartDate === '' || log.date >= filterStartDate;
+        const matchesEnd = filterEndDate === '' || log.date <= filterEndDate;
+        matchesDate = matchesStart && matchesEnd;
+      }
+
+      const matchesProject = filterProject === '' || log.project === filterProject;
+      const matchesSearch = logSearch === '' || log.name.toLowerCase().includes(logSearch.toLowerCase());
+      const matchesPayment = paymentStatusFilter === 'All' || log.paymentStatus === paymentStatusFilter;
+      return matchesDate && matchesProject && matchesSearch && matchesPayment;
+    });
+  }, [dailyLogs, filterMode, filterDate, filterMonth, filterStartDate, filterEndDate, filterProject, logSearch, paymentStatusFilter]);
+
+  const dailyLogFilteredStats = useMemo(() => {
+    const presentLogs = filteredDailyLogs.filter(l => l.status === 'Present');
+    const presentWorkers = new Set(presentLogs.map(l => l.workerId || l.name));
+    const absentLogs = filteredDailyLogs.filter(l => l.status === 'Absent' || l.status === 'Leave');
+    const absentWorkers = new Set(absentLogs.map(l => l.workerId || l.name));
+    const totalDays = presentLogs.reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
+    const totalWage = filteredDailyLogs.reduce((s, l) => s + (l.wage || l.wageAtTime || 0), 0);
+    const totalPaid = filteredDailyLogs.reduce((s, l) => s + getAmountPaid(l), 0);
+    const totalPending = filteredDailyLogs.reduce((s, l) => s + getAmountPending(l), 0);
+
+    return {
+      totalPresentWorkers: presentWorkers.size,
+      totalPresentEntries: presentLogs.length,
+      totalAbsentWorkers: absentWorkers.size,
+      totalDays,
+      totalWage,
+      totalPaid,
+      totalPending,
+      totalRecords: filteredDailyLogs.length
+    };
+  }, [filteredDailyLogs]);
+
+  const selectedFilterLabel = useMemo(() => {
+    const parts = [];
+    if (filterMode === 'single' && filterDate) parts.push(formatDate(filterDate));
+    else if (filterMode === 'month' && filterMonth) parts.push(filterMonth);
+    else if (filterMode === 'range' && (filterStartDate || filterEndDate)) {
+      parts.push(`${formatDate(filterStartDate) || 'Start'} to ${formatDate(filterEndDate) || 'End'}`);
+    }
+    if (filterProject) parts.push(filterProject);
+    if (paymentStatusFilter && paymentStatusFilter !== 'All') parts.push(paymentStatusFilter);
+    if (logSearch) parts.push(`"${logSearch}"`);
+    return parts.join(' • ') || 'Selected Filter';
+  }, [filterMode, filterDate, filterMonth, filterStartDate, filterEndDate, filterProject, paymentStatusFilter, logSearch]);
+
   const activeWorkerObjForModal = selectedWorker ? workers.find(w => (w.id || w._id || '').toString() === (selectedWorker.id || selectedWorker._id || '').toString()) : null;
   const workerLogsForModal = activeWorkerObjForModal ? dailyLogs.filter(l => (l.workerId || '').toString() === (activeWorkerObjForModal.id || activeWorkerObjForModal._id || '').toString()) : [];
 
@@ -477,30 +543,7 @@ const Workers = () => {
   };
 
   const renderDailyLog = () => {
-    const filteredLogs = dailyLogs.filter(log => {
-      let matchesDate = true;
-      if (filterMode === 'single') {
-        matchesDate = filterDate === '' || log.date === filterDate;
-      } else if (filterMode === 'month') {
-        matchesDate = filterMonth === '' || (log.date && log.date.substring(0, 7) === filterMonth);
-      } else if (filterMode === 'range') {
-        const matchesStart = filterStartDate === '' || log.date >= filterStartDate;
-        const matchesEnd = filterEndDate === '' || log.date <= filterEndDate;
-        matchesDate = matchesStart && matchesEnd;
-      }
-
-      const matchesProject = filterProject === '' || log.project === filterProject;
-      const matchesSearch = logSearch === '' || log.name.toLowerCase().includes(logSearch.toLowerCase());
-      const matchesPayment = paymentStatusFilter === 'All' || log.paymentStatus === paymentStatusFilter;
-      return matchesDate && matchesProject && matchesSearch && matchesPayment;
-    });
-
-    const isLogFiltered = 
-      (filterMode === 'single' && filterDate !== '') ||
-      (filterMode === 'month' && filterMonth !== '') ||
-      (filterMode === 'range' && (filterStartDate !== '' || filterEndDate !== '')) ||
-      filterProject !== '' || 
-      paymentStatusFilter !== 'All';
+    const filteredLogs = filteredDailyLogs;
 
     return (
       <div className="card">
@@ -651,6 +694,7 @@ const Workers = () => {
                     totalWage: totalWageAll,
                     totalPaid: totalPaidAll,
                     totalPending: totalPendingAll,
+                    totalPresentWorkers: dailyLogFilteredStats.totalPresentWorkers,
                     uniqueWorkers: new Set(filteredLogs.map(l => l.workerId)).size
                   };
                   let sheetName = 'Daily_Attendance_Logs';
@@ -743,6 +787,89 @@ const Workers = () => {
             </select>
           </div>
         </FilterModal>
+
+        {isLogFiltered && (
+          <div 
+            className="dashboard-grid" 
+            style={{ 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+              gap: '0.75rem', 
+              marginBottom: '1rem',
+              marginTop: '0.5rem'
+            }}
+          >
+            <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', borderLeft: '4px solid #10b981' }}>
+              <div className="summary-content">
+                <div style={{ fontSize: '0.75rem', color: '#065f46', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Total Present Workers
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#059669', marginTop: '2px' }}>
+                  {dailyLogFilteredStats.totalPresentWorkers}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: '2px' }}>
+                  {dailyLogFilteredStats.totalPresentEntries} attendance entry(s)
+                </div>
+              </div>
+            </div>
+
+            <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
+              <div className="summary-content">
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Total Days / Shifts
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-info)', marginTop: '2px' }}>
+                  {dailyLogFilteredStats.totalDays} Days
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                  {dailyLogFilteredStats.totalRecords} total records
+                </div>
+              </div>
+            </div>
+
+            <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fffbeb', borderColor: '#fef3c7' }}>
+              <div className="summary-content">
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Calculated Wage
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
+                  {formatCurrency(dailyLogFilteredStats.totalWage)}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                  For selected data
+                </div>
+              </div>
+            </div>
+
+            <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }}>
+              <div className="summary-content">
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Total Paid
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '2px' }}>
+                  {formatCurrency(dailyLogFilteredStats.totalPaid)}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', marginTop: '2px' }}>
+                  Settled wage
+                </div>
+              </div>
+            </div>
+
+            <div className="summary-card" style={{ padding: '0.85rem 1rem', marginBottom: 0, backgroundColor: '#fef2f2', borderColor: '#fee2e2' }}>
+              <div className="summary-content">
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Total Pending
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-danger)', marginTop: '2px' }}>
+                  {formatCurrency(dailyLogFilteredStats.totalPending)}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-danger)', marginTop: '2px' }}>
+                  Outstanding wage
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="table-container">
           <table>
             <thead>
@@ -1425,6 +1552,22 @@ const Workers = () => {
 
       {/* Summary Cards */}
       <div className="dashboard-grid">
+        {activeTab === 'logs' && isLogFiltered && (
+          <div className="summary-card" style={{ backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }}>
+            <div className="summary-icon-box" style={{ backgroundColor: '#d1fae5', color: '#059669' }}>
+              <UserCheck size={24} />
+            </div>
+            <div className="summary-content">
+              <h3 className="summary-title">Total Present Workers</h3>
+              <div className="summary-value" style={{ color: '#059669' }}>
+                {dailyLogFilteredStats.totalPresentWorkers}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: '2px', fontWeight: 500 }}>
+                {selectedFilterLabel}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="summary-card" style={{ backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
           <div className="summary-icon-box" style={{ backgroundColor: 'var(--color-info-bg)', color: 'var(--color-info)' }}>
             <Users size={24} />
