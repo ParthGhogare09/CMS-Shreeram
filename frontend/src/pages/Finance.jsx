@@ -1,5 +1,5 @@
 // Basic demo command
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, X, Trash2, ArrowUpRight, Clock, CheckCircle, Download, Filter, RotateCcw, FileText, Edit } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -20,6 +20,7 @@ const Finance = () => {
     finances,
     projects,
     workers,
+    dailyLogs = [],
     loading,
     addIncomeAction,
     updateIncomeAction,
@@ -41,6 +42,22 @@ const Finance = () => {
   const [advanceSearch, setAdvanceSearch] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('All');
   const [showIncomeFilterModal, setShowIncomeFilterModal] = useState(false);
+
+  // Date Filter States for all 4 tables
+  const [incomeStartDate, setIncomeStartDate] = useState('');
+  const [incomeEndDate, setIncomeEndDate] = useState('');
+
+  const [labourStartDate, setLabourStartDate] = useState('');
+  const [labourEndDate, setLabourEndDate] = useState('');
+  const [showLabourFilterModal, setShowLabourFilterModal] = useState(false);
+
+  const [advanceStartDate, setAdvanceStartDate] = useState('');
+  const [advanceEndDate, setAdvanceEndDate] = useState('');
+  const [showAdvanceFilterModal, setShowAdvanceFilterModal] = useState(false);
+
+  const [materialStartDate, setMaterialStartDate] = useState('');
+  const [materialEndDate, setMaterialEndDate] = useState('');
+  const [showMaterialFilterModal, setShowMaterialFilterModal] = useState(false);
 
   // Add Income Handler
   const handleAddIncome = (e) => {
@@ -237,29 +254,155 @@ const Finance = () => {
     doc.save(`Income_Bill_${projectName.replace(/\s+/g, '_')}.pdf`);
   };
 
-  if (loading) {
-    return <SkeletonLoader type="table" rows={7} />;
-  }
-
   const { totalBudget = 0, totalRevenue = 0, totalLaborPending = 0, totalLaborPaid = 0, totalMaterialSpent = 0, activeProjects = 0, totalProjects = 0 } = stats;
+
+  const normalizeDateStr = (dateVal) => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      if (dateVal.includes('T')) return dateVal.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return dateVal;
+      try {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      } catch {
+        return dateVal;
+      }
+    } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+      return dateVal.toISOString().split('T')[0];
+    }
+    return String(dateVal);
+  };
+
+  const renderQuickDatePresets = (setStart, setEnd, currentStart, currentEnd) => (
+    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+      <button 
+        type="button" 
+        className="btn btn-secondary"
+        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+        onClick={() => {
+          const today = new Date().toISOString().split('T')[0];
+          setStart(today);
+          setEnd(today);
+        }}
+      >
+        Today
+      </button>
+      <button 
+        type="button" 
+        className="btn btn-secondary"
+        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+        onClick={() => {
+          const now = new Date();
+          const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+          const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+          setStart(firstDay);
+          setEnd(lastDay);
+        }}
+      >
+        This Month
+      </button>
+      <button 
+        type="button" 
+        className="btn btn-secondary"
+        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+        onClick={() => {
+          const now = new Date();
+          const past30 = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+          const today = new Date().toISOString().split('T')[0];
+          setStart(past30);
+          setEnd(today);
+        }}
+      >
+        Last 30 Days
+      </button>
+      {(currentStart || currentEnd) && (
+        <button 
+          type="button" 
+          className="btn btn-secondary text-danger"
+          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+          onClick={() => {
+            setStart('');
+            setEnd('');
+          }}
+        >
+          Clear Dates
+        </button>
+      )}
+    </div>
+  );
+
+  const isIncomeFiltered = paymentTypeFilter !== 'All' || Boolean(incomeStartDate) || Boolean(incomeEndDate);
+  const isLabourFiltered = Boolean(labourStartDate) || Boolean(labourEndDate);
+  const isAdvanceFiltered = Boolean(advanceStartDate) || Boolean(advanceEndDate);
+  const isMaterialFiltered = Boolean(materialStartDate) || Boolean(materialEndDate);
 
   const filteredIncomes = incomes.filter(inc => {
     const matchesSearch = inc.project.toLowerCase().includes(incomeSearch.toLowerCase());
     const matchesPaymentType = paymentTypeFilter === 'All' || inc.paymentType === paymentTypeFilter;
-    return matchesSearch && matchesPaymentType;
+    const logDate = normalizeDateStr(inc.date);
+    const matchesDate = (!incomeStartDate || logDate >= incomeStartDate) && (!incomeEndDate || logDate <= incomeEndDate);
+    return matchesSearch && matchesPaymentType && matchesDate;
   });
 
-  const filteredLabourStats = labourStats.filter(worker => 
+  const effectiveLabourStats = useMemo(() => {
+    if (!labourStartDate && !labourEndDate) {
+      return labourStats;
+    }
+    const matchingLogs = (dailyLogs || []).filter(log => {
+      const logDate = normalizeDateStr(log.date);
+      if (labourStartDate && logDate < labourStartDate) return false;
+      if (labourEndDate && logDate > labourEndDate) return false;
+      return true;
+    });
+
+    const map = {};
+    matchingLogs.forEach(log => {
+      const name = log.name;
+      if (!name) return;
+      if (!map[name]) {
+        map[name] = { name, incurred: 0, paid: 0, pending: 0 };
+      }
+      const wage = Number(log.wage || log.wageAtTime || 0);
+      let paid = 0;
+      if (log.paymentStatus === 'Paid') {
+        paid = wage;
+      } else if (log.paymentStatus === 'Partial' && log.amountPaid !== undefined) {
+        paid = Number(log.amountPaid || 0);
+      } else if (log.amountPaid !== undefined && log.paymentStatus !== 'Pending') {
+        paid = Number(log.amountPaid || 0);
+      }
+      const pending = Math.max(0, wage - paid);
+      map[name].incurred += wage;
+      map[name].paid += paid;
+      map[name].pending += pending;
+    });
+
+    return Object.values(map);
+  }, [labourStats, dailyLogs, labourStartDate, labourEndDate]);
+
+  const filteredLabourStats = effectiveLabourStats.filter(worker => 
     worker.name.toLowerCase().includes(labourSearch.toLowerCase())
   );
 
-  const filteredMaterialStats = materialStats.filter(mat => 
-    mat.name.toLowerCase().includes(materialSearch.toLowerCase())
-  );
+  const filteredAdvances = (advances || []).filter(adv => {
+    const matchesSearch = (adv.description || '').toLowerCase().includes(advanceSearch.toLowerCase());
+    const logDate = normalizeDateStr(adv.date);
+    const matchesDate = (!advanceStartDate || logDate >= advanceStartDate) && (!advanceEndDate || logDate <= advanceEndDate);
+    return matchesSearch && matchesDate;
+  });
 
-  const filteredAdvances = (advances || []).filter(adv => 
-    (adv.description || '').toLowerCase().includes(advanceSearch.toLowerCase())
-  );
+  const filteredMaterialStats = materialStats.filter(mat => {
+    const matchesSearch = mat.name.toLowerCase().includes(materialSearch.toLowerCase());
+    if (!materialStartDate && !materialEndDate) return matchesSearch;
+    if (!mat.purchaseDate || mat.purchaseDate === 'Historic') return false;
+    const logDate = normalizeDateStr(mat.purchaseDate);
+    const matchesDate = (!materialStartDate || logDate >= materialStartDate) && (!materialEndDate || logDate <= materialEndDate);
+    return matchesSearch && matchesDate;
+  });
+
+  if (loading) {
+    return <SkeletonLoader type="table" rows={7} />;
+  }
 
   return (
     <div className="finance-container">
@@ -312,7 +455,7 @@ const Finance = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Site Payments Received (Income)</h3>
-          <div className="action-toolbar">
+          <div className="action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={incomeSearch}
@@ -321,21 +464,62 @@ const Finance = () => {
                 suggestions={projects.map(p => p.name)}
               />
             </div>
+
+            {/* Date Interval Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Date Interval Filter">
+              <input 
+                type="date" 
+                value={incomeStartDate} 
+                onChange={e => setIncomeStartDate(e.target.value)} 
+                title="Start Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>to</span>
+              <input 
+                type="date" 
+                value={incomeEndDate} 
+                min={incomeStartDate || undefined}
+                onChange={e => setIncomeEndDate(e.target.value)} 
+                title="End Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+            </div>
+
             <div className="action-toolbar-buttons">
               <button 
-                className={`btn btn-secondary ${paymentTypeFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                className={`btn btn-secondary ${isIncomeFiltered ? 'btn-filter-active' : ''}`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                 onClick={() => setShowIncomeFilterModal(true)}
               >
                 <Filter size={14} /> Filter
-                {paymentTypeFilter !== 'All' && <span className="filter-badge-dot" />}
+                {isIncomeFiltered && <span className="filter-badge-dot" />}
               </button>
-              {paymentTypeFilter !== 'All' && (
+              {isIncomeFiltered && (
                 <button 
                   className="btn btn-secondary text-danger" 
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                  onClick={() => setPaymentTypeFilter('All')}
-                  title="Reset Filters"
+                  onClick={() => {
+                    setPaymentTypeFilter('All');
+                    setIncomeStartDate('');
+                    setIncomeEndDate('');
+                  }}
+                  title="Reset All Income Filters"
                 >
                   <RotateCcw size={13} /> Reset
                 </button>
@@ -344,20 +528,17 @@ const Finance = () => {
                 className="btn btn-secondary" 
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                 onClick={() => {
-                  // Group incomes by project
-                  const projectMap = {};
-                  filteredIncomes.forEach(inc => {
-                    if (!projectMap[inc.project]) projectMap[inc.project] = { totalCollected: 0, count: 0 };
-                    projectMap[inc.project].totalCollected += Number(inc.amount || 0);
-                    projectMap[inc.project].count++;
-                  });
                   const exportData = filteredIncomes.map(inc => ({
                     'Date': formatDate(inc.date),
                     'Site / Project': inc.project,
                     'Payment Type': inc.paymentType,
                     'Amount Received (Rs.)': Number(inc.amount || 0)
                   }));
-                  exportToExcel(exportData, 'Site_Income_Report');
+                  let sheetName = 'Site_Income_Report';
+                  if (incomeStartDate || incomeEndDate) {
+                    sheetName += `_${incomeStartDate || 'start'}_to_${incomeEndDate || 'end'}`;
+                  }
+                  exportToExcel(exportData, sheetName);
                 }}
               >
                 <Download size={14} /> Export Excel
@@ -372,12 +553,46 @@ const Finance = () => {
         <FilterModal
           isOpen={showIncomeFilterModal}
           onClose={() => setShowIncomeFilterModal(false)}
-          onReset={() => setPaymentTypeFilter('All')}
+          onReset={() => {
+            setPaymentTypeFilter('All');
+            setIncomeStartDate('');
+            setIncomeEndDate('');
+          }}
           title="Filter Site Income"
         >
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Date Interval</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Start Date</label>
+                <input 
+                  type="date" 
+                  value={incomeStartDate} 
+                  onChange={e => setIncomeStartDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>End Date</label>
+                <input 
+                  type="date" 
+                  value={incomeEndDate} 
+                  min={incomeStartDate || undefined}
+                  onChange={e => setIncomeEndDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+            {renderQuickDatePresets(setIncomeStartDate, setIncomeEndDate, incomeStartDate, incomeEndDate)}
+          </div>
+
           <div className="form-group">
-            <label>Payment Method</label>
-            <select value={paymentTypeFilter} onChange={e => setPaymentTypeFilter(e.target.value)}>
+            <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Payment Method</label>
+            <select 
+              value={paymentTypeFilter} 
+              onChange={e => setPaymentTypeFilter(e.target.value)}
+              style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+            >
               <option value="All">All Payment Types</option>
               <option value="Cash">Cash</option>
               <option value="UPI">UPI</option>
@@ -469,7 +684,7 @@ const Finance = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Labour Finance Summary</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div className="action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={labourSearch}
@@ -478,24 +693,124 @@ const Finance = () => {
                 suggestions={labourStats.map(w => w.name)}
               />
             </div>
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredLabourStats.map(w => ({
-                  'Worker Name': w.name,
-                  'Total Wage Incurred (Rs.)': Number(w.incurred || 0),
-                  'Amount Paid (Rs.)': Number(w.paid || 0),
-                  'Amount Pending (Rs.)': Number(w.pending || 0),
-                  'Status': (w.pending || 0) > 0 ? 'Pending' : 'Clear'
-                }));
-                exportToExcel(exportData, 'Labour_Finance_Summary');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
+
+            {/* Date Interval Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Date Interval Filter">
+              <input 
+                type="date" 
+                value={labourStartDate} 
+                onChange={e => setLabourStartDate(e.target.value)} 
+                title="Start Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>to</span>
+              <input 
+                type="date" 
+                value={labourEndDate} 
+                min={labourStartDate || undefined}
+                onChange={e => setLabourEndDate(e.target.value)} 
+                title="End Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+            </div>
+
+            <div className="action-toolbar-buttons">
+              <button 
+                className={`btn btn-secondary ${isLabourFiltered ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowLabourFilterModal(true)}
+              >
+                <Filter size={14} /> Filter
+                {isLabourFiltered && <span className="filter-badge-dot" />}
+              </button>
+              {isLabourFiltered && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => {
+                    setLabourStartDate('');
+                    setLabourEndDate('');
+                  }}
+                  title="Reset All Labour Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredLabourStats.map(w => ({
+                    'Worker Name': w.name,
+                    'Total Wage Incurred (Rs.)': Number(w.incurred || 0),
+                    'Amount Paid (Rs.)': Number(w.paid || 0),
+                    'Amount Pending (Rs.)': Number(w.pending || 0),
+                    'Status': (w.pending || 0) > 0 ? 'Pending' : 'Clear'
+                  }));
+                  let sheetName = 'Labour_Finance_Summary';
+                  if (labourStartDate || labourEndDate) {
+                    sheetName += `_${labourStartDate || 'start'}_to_${labourEndDate || 'end'}`;
+                  }
+                  exportToExcel(exportData, sheetName);
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+            </div>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showLabourFilterModal}
+          onClose={() => setShowLabourFilterModal(false)}
+          onReset={() => {
+            setLabourStartDate('');
+            setLabourEndDate('');
+          }}
+          title="Filter Labour Finance Summary"
+        >
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Date Interval</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Start Date</label>
+                <input 
+                  type="date" 
+                  value={labourStartDate} 
+                  onChange={e => setLabourStartDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>End Date</label>
+                <input 
+                  type="date" 
+                  value={labourEndDate} 
+                  min={labourStartDate || undefined}
+                  onChange={e => setLabourEndDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+            {renderQuickDatePresets(setLabourStartDate, setLabourEndDate, labourStartDate, labourEndDate)}
+          </div>
+        </FilterModal>
         <div className="table-container">
           <table>
             <thead>
@@ -539,7 +854,7 @@ const Finance = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Labour Advance Payments (Expenses)</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div className="action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={advanceSearch}
@@ -548,24 +863,125 @@ const Finance = () => {
                 suggestions={workers ? workers.map(w => w.name) : []}
               />
             </div>
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredAdvances.map(adv => ({
-                  'Date': formatDate(adv.date),
-                  'Description': adv.description || 'Labor Advance',
-                  'Payment Type': adv.paymentType || 'Cash',
-                  'Amount Paid (Rs.)': Number(adv.amount || 0),
-                  'Added By': adv.addedBy || '-'
-                }));
-                exportToExcel(exportData, 'Labour_Advances_Report');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
+
+            {/* Date Interval Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Date Interval Filter">
+              <input 
+                type="date" 
+                value={advanceStartDate} 
+                onChange={e => setAdvanceStartDate(e.target.value)} 
+                title="Start Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>to</span>
+              <input 
+                type="date" 
+                value={advanceEndDate} 
+                min={advanceStartDate || undefined}
+                onChange={e => setAdvanceEndDate(e.target.value)} 
+                title="End Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+            </div>
+
+            <div className="action-toolbar-buttons">
+              <button 
+                className={`btn btn-secondary ${isAdvanceFiltered ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowAdvanceFilterModal(true)}
+              >
+                <Filter size={14} /> Filter
+                {isAdvanceFiltered && <span className="filter-badge-dot" />}
+              </button>
+              {isAdvanceFiltered && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => {
+                    setAdvanceStartDate('');
+                    setAdvanceEndDate('');
+                  }}
+                  title="Reset Advance Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredAdvances.map(adv => ({
+                    'Date': formatDate(adv.date),
+                    'Description': adv.description || 'Labor Advance',
+                    'Payment Type': adv.paymentType || 'Cash',
+                    'Amount Paid (Rs.)': Number(adv.amount || 0),
+                    'Added By': adv.addedBy || '-'
+                  }));
+                  let sheetName = 'Labour_Advances_Report';
+                  if (advanceStartDate || advanceEndDate) {
+                    sheetName += `_${advanceStartDate || 'start'}_to_${advanceEndDate || 'end'}`;
+                  }
+                  exportToExcel(exportData, sheetName);
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+            </div>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showAdvanceFilterModal}
+          onClose={() => setShowAdvanceFilterModal(false)}
+          onReset={() => {
+            setAdvanceStartDate('');
+            setAdvanceEndDate('');
+          }}
+          title="Filter Labour Advance Payments"
+        >
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Date Interval</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Start Date</label>
+                <input 
+                  type="date" 
+                  value={advanceStartDate} 
+                  onChange={e => setAdvanceStartDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>End Date</label>
+                <input 
+                  type="date" 
+                  value={advanceEndDate} 
+                  min={advanceStartDate || undefined}
+                  onChange={e => setAdvanceEndDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+            {renderQuickDatePresets(setAdvanceStartDate, setAdvanceEndDate, advanceStartDate, advanceEndDate)}
+          </div>
+        </FilterModal>
+
         <div className="table-container">
           <table>
             <thead>
@@ -609,7 +1025,7 @@ const Finance = () => {
                 </tr>
               ))}
               {filteredAdvances.length === 0 && (
-                <tr><td colSpan="6" style={{textAlign: 'center', padding: '1rem'}}>No labour advance payments found matching search query.</td></tr>
+                <tr><td colSpan="6" style={{textAlign: 'center', padding: '1rem'}}>No labour advance payments found matching criteria.</td></tr>
               )}
             </tbody>
           </table>
@@ -620,7 +1036,7 @@ const Finance = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h3 style={{ margin: 0 }}>Material Finance Overview</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div className="action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <div style={{ width: '180px' }}>
               <SearchWithSuggestions 
                 value={materialSearch}
@@ -629,27 +1045,128 @@ const Finance = () => {
                 suggestions={materialStats.map(m => m.name)}
               />
             </div>
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-              onClick={() => {
-                const exportData = filteredMaterialStats.map(m => ({
-                  'Material Name': m.name,
-                  'Purchase Date': m.purchaseDate === 'Historic' ? 'Historic' : formatDate(m.purchaseDate),
-                  'Purchased Qty': Number(m.purchasedQty || 0),
-                  'Unit': m.unit || '-',
-                  'Total Purchase Cost (Rs.)': Number(m.purchaseValue || 0),
-                  'Distributed Qty': Number(m.distQty || 0),
-                  'Distributed Value (Rs.)': Number(m.distValue || 0),
-                  'Profit / Difference (Rs.)': Number(m.profit || 0)
-                }));
-                exportToExcel(exportData, 'Material_Finance_Overview');
-              }}
-            >
-              <Download size={14} /> Export Excel
-            </button>
+
+            {/* Date Interval Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Date Interval Filter">
+              <input 
+                type="date" 
+                value={materialStartDate} 
+                onChange={e => setMaterialStartDate(e.target.value)} 
+                title="Start Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>to</span>
+              <input 
+                type="date" 
+                value={materialEndDate} 
+                min={materialStartDate || undefined}
+                onChange={e => setMaterialEndDate(e.target.value)} 
+                title="End Date"
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px'
+                }} 
+              />
+            </div>
+
+            <div className="action-toolbar-buttons">
+              <button 
+                className={`btn btn-secondary ${isMaterialFiltered ? 'btn-filter-active' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => setShowMaterialFilterModal(true)}
+              >
+                <Filter size={14} /> Filter
+                {isMaterialFiltered && <span className="filter-badge-dot" />}
+              </button>
+              {isMaterialFiltered && (
+                <button 
+                  className="btn btn-secondary text-danger" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={() => {
+                    setMaterialStartDate('');
+                    setMaterialEndDate('');
+                  }}
+                  title="Reset Material Filters"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const exportData = filteredMaterialStats.map(m => ({
+                    'Material Name': m.name,
+                    'Purchase Date': m.purchaseDate === 'Historic' ? 'Historic' : formatDate(m.purchaseDate),
+                    'Purchased Qty': Number(m.purchasedQty || 0),
+                    'Unit': m.unit || '-',
+                    'Total Purchase Cost (Rs.)': Number(m.purchaseValue || 0),
+                    'Distributed Qty': Number(m.distQty || 0),
+                    'Distributed Value (Rs.)': Number(m.distValue || 0),
+                    'Profit / Difference (Rs.)': Number(m.profit || 0)
+                  }));
+                  let sheetName = 'Material_Finance_Overview';
+                  if (materialStartDate || materialEndDate) {
+                    sheetName += `_${materialStartDate || 'start'}_to_${materialEndDate || 'end'}`;
+                  }
+                  exportToExcel(exportData, sheetName);
+                }}
+              >
+                <Download size={14} /> Export Excel
+              </button>
+            </div>
           </div>
         </div>
+
+        <FilterModal
+          isOpen={showMaterialFilterModal}
+          onClose={() => setShowMaterialFilterModal(false)}
+          onReset={() => {
+            setMaterialStartDate('');
+            setMaterialEndDate('');
+          }}
+          title="Filter Material Finance Overview"
+        >
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Date Interval</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Start Date</label>
+                <input 
+                  type="date" 
+                  value={materialStartDate} 
+                  onChange={e => setMaterialStartDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>End Date</label>
+                <input 
+                  type="date" 
+                  value={materialEndDate} 
+                  min={materialStartDate || undefined}
+                  onChange={e => setMaterialEndDate(e.target.value)} 
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+            {renderQuickDatePresets(setMaterialStartDate, setMaterialEndDate, materialStartDate, materialEndDate)}
+          </div>
+        </FilterModal>
+
         <div className="table-container">
           <table>
             <thead>

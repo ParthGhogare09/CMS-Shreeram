@@ -47,6 +47,11 @@ const ProjectDetails = () => {
   const [materialSearch, setMaterialSearch] = useState('');
   const [laborPaymentFilter, setLaborPaymentFilter] = useState('All');
   const [showLaborFilterModal, setShowLaborFilterModal] = useState(false);
+  const [laborStartDate, setLaborStartDate] = useState('');
+  const [laborEndDate, setLaborEndDate] = useState('');
+  const [materialStartDate, setMaterialStartDate] = useState('');
+  const [materialEndDate, setMaterialEndDate] = useState('');
+  const [showMaterialFilterModal, setShowMaterialFilterModal] = useState(false);
 
   const fetchProjectDetails = () => {
     getProjectDetails(projectId)
@@ -190,18 +195,46 @@ const ProjectDetails = () => {
   const materialLogs = logs.filter(l => l.type === 'Material' || l.type === 'Miscellaneous');
   const otherLogs = logs.filter(l => l.type === 'Transportation' || l.type === 'Rental');
 
+  const isLaborFiltered = laborPaymentFilter !== 'All' || Boolean(laborStartDate) || Boolean(laborEndDate);
+  const isMaterialFiltered = Boolean(materialStartDate) || Boolean(materialEndDate);
+
+  const normalizeDateStr = (dateVal) => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      if (dateVal.includes('T')) return dateVal.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return dateVal;
+      try {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      } catch {
+        return dateVal;
+      }
+    } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+      return dateVal.toISOString().split('T')[0];
+    }
+    return String(dateVal);
+  };
+
   const filteredLaborLogs = laborLogs.filter(log => {
     const matchesSearch = log.name.toLowerCase().includes(laborSearch.toLowerCase());
     const paid = log.amountPaid ?? log.cost;
     const pending = log.cost - paid;
     const status = pending <= 0 ? 'Paid' : 'Pending';
     const matchesPayment = laborPaymentFilter === 'All' || status === laborPaymentFilter;
-    return matchesSearch && matchesPayment;
+    
+    const logDate = normalizeDateStr(log.date);
+    const matchesDate = (!laborStartDate || logDate >= laborStartDate) && (!laborEndDate || logDate <= laborEndDate);
+
+    return matchesSearch && matchesPayment && matchesDate;
   });
 
-  const filteredMaterialLogs = materialLogs.filter(log => 
-    log.name.toLowerCase().includes(materialSearch.toLowerCase())
-  );
+  const filteredMaterialLogs = materialLogs.filter(log => {
+    const matchesSearch = log.name.toLowerCase().includes(materialSearch.toLowerCase());
+    const logDate = normalizeDateStr(log.date);
+    const matchesDate = (!materialStartDate || logDate >= materialStartDate) && (!materialEndDate || logDate <= materialEndDate);
+
+    return matchesSearch && matchesDate;
+  });
 
   // Aggregating spent stats based on local logs
   const laborSpent = laborLogs.reduce((acc, curr) => acc + curr.cost, 0);
@@ -312,7 +345,7 @@ const ProjectDetails = () => {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ margin: 0 }}>Labour Details</h3>
-            <div className="action-toolbar">
+            <div className="action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ width: '180px' }}>
                 <SearchWithSuggestions 
                   value={laborSearch}
@@ -321,21 +354,62 @@ const ProjectDetails = () => {
                   suggestions={laborLogs.map(l => l.name)}
                 />
               </div>
+
+              {/* Date Interval Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Date Interval Filter">
+                <input 
+                  type="date" 
+                  value={laborStartDate} 
+                  onChange={e => setLaborStartDate(e.target.value)} 
+                  title="Start Date"
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text)',
+                    fontSize: '0.85rem',
+                    height: '34px'
+                  }} 
+                />
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>to</span>
+                <input 
+                  type="date" 
+                  value={laborEndDate} 
+                  min={laborStartDate || undefined}
+                  onChange={e => setLaborEndDate(e.target.value)} 
+                  title="End Date"
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text)',
+                    fontSize: '0.85rem',
+                    height: '34px'
+                  }} 
+                />
+              </div>
+
               <div className="action-toolbar-buttons">
                 <button 
-                  className={`btn btn-secondary ${laborPaymentFilter !== 'All' ? 'btn-filter-active' : ''}`}
+                  className={`btn btn-secondary ${isLaborFiltered ? 'btn-filter-active' : ''}`}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
                   onClick={() => setShowLaborFilterModal(true)}
                 >
                   <Filter size={14} /> Filter
-                  {laborPaymentFilter !== 'All' && <span className="filter-badge-dot" />}
+                  {isLaborFiltered && <span className="filter-badge-dot" />}
                 </button>
-                {laborPaymentFilter !== 'All' && (
+                {isLaborFiltered && (
                   <button 
                     className="btn btn-secondary text-danger" 
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
-                    onClick={() => setLaborPaymentFilter('All')}
-                    title="Reset Filters"
+                    onClick={() => {
+                      setLaborPaymentFilter('All');
+                      setLaborStartDate('');
+                      setLaborEndDate('');
+                    }}
+                    title="Reset All Labour Filters"
                   >
                     <RotateCcw size={13} /> Reset
                   </button>
@@ -358,7 +432,11 @@ const ProjectDetails = () => {
                         'Status': pending <= 0 ? 'Paid' : 'Pending'
                       };
                     });
-                    exportToExcel(exportData, `${project.name}_Labour_Details`);
+                    let sheetName = `${project.name}_Labour_Details`;
+                    if (laborStartDate || laborEndDate) {
+                      sheetName += `_${laborStartDate || 'start'}_to_${laborEndDate || 'end'}`;
+                    }
+                    exportToExcel(exportData, sheetName);
                   }}
                 >
                   <Download size={14} /> Export Excel
@@ -370,12 +448,100 @@ const ProjectDetails = () => {
           <FilterModal
             isOpen={showLaborFilterModal}
             onClose={() => setShowLaborFilterModal(false)}
-            onReset={() => setLaborPaymentFilter('All')}
+            onReset={() => {
+              setLaborPaymentFilter('All');
+              setLaborStartDate('');
+              setLaborEndDate('');
+            }}
             title="Filter Labour Logs"
           >
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Date Interval</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={laborStartDate} 
+                    onChange={e => setLaborStartDate(e.target.value)} 
+                    style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>End Date</label>
+                  <input 
+                    type="date" 
+                    value={laborEndDate} 
+                    min={laborStartDate || undefined}
+                    onChange={e => setLaborEndDate(e.target.value)} 
+                    style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    setLaborStartDate(today);
+                    setLaborEndDate(today);
+                  }}
+                >
+                  Today
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => {
+                    const now = new Date();
+                    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                    setLaborStartDate(firstDay);
+                    setLaborEndDate(lastDay);
+                  }}
+                >
+                  This Month
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => {
+                    const now = new Date();
+                    const past30 = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+                    const today = new Date().toISOString().split('T')[0];
+                    setLaborStartDate(past30);
+                    setLaborEndDate(today);
+                  }}
+                >
+                  Last 30 Days
+                </button>
+                {(laborStartDate || laborEndDate) && (
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary text-danger"
+                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                    onClick={() => {
+                      setLaborStartDate('');
+                      setLaborEndDate('');
+                    }}
+                  >
+                    Clear Dates
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="form-group">
-              <label>Payment Status</label>
-              <select value={laborPaymentFilter} onChange={e => setLaborPaymentFilter(e.target.value)}>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Payment Status</label>
+              <select 
+                value={laborPaymentFilter} 
+                onChange={e => setLaborPaymentFilter(e.target.value)}
+                style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+              >
                 <option value="All">All Payment Statuses</option>
                 <option value="Paid">Paid</option>
                 <option value="Pending">Pending</option>
@@ -457,7 +623,7 @@ const ProjectDetails = () => {
                     </tr>
                   );
                 })}
-                {filteredLaborLogs.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>No labor found matching search query.</td></tr>}
+                {filteredLaborLogs.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>No labor records found matching the selected filters.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -466,7 +632,7 @@ const ProjectDetails = () => {
         <div className="card" style={{ marginTop: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ margin: 0 }}>Material & Miscellaneous Usage</h3>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div className="action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ width: '180px' }}>
                 <SearchWithSuggestions 
                   value={materialSearch}
@@ -475,34 +641,210 @@ const ProjectDetails = () => {
                   suggestions={materialLogs.map(l => l.name)}
                 />
               </div>
-              <button 
-                className="btn btn-secondary" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                onClick={() => {
-                  const exportData = filteredMaterialLogs.map(log => {
-                    const qty = log.quantity || 1;
-                    const rate = log.distributionRate || log.cost;
-                    const total = log.cost || (qty * rate);
-                    return {
-                      'Log ID': log.id || log._id,
-                      'Material / Item': log.name,
-                      'Batch(es)': log.batchesConsumed || 'Batch 1',
-                      'Purchase Rate': log.purchaseRateInfo || 'N/A',
-                      'Purchase Cost (₹)': log.purchaseCost || 0,
-                      'Quantity Distributed': qty,
-                      'Unit': log.unit || 'Units',
-                      'Distribution Rate (₹)': rate,
-                      'Total Amount (₹)': total,
-                      'Date of Distribution': formatDate(log.date)
-                    };
-                  });
-                  exportToExcel(exportData, `${project.name}_Material_Usage`);
-                }}
-              >
-                <Download size={14} /> Export Excel
-              </button>
+
+              {/* Date Interval Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Date Interval Filter">
+                <input 
+                  type="date" 
+                  value={materialStartDate} 
+                  onChange={e => setMaterialStartDate(e.target.value)} 
+                  title="Start Date"
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text)',
+                    fontSize: '0.85rem',
+                    height: '34px'
+                  }} 
+                />
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>to</span>
+                <input 
+                  type="date" 
+                  value={materialEndDate} 
+                  min={materialStartDate || undefined}
+                  onChange={e => setMaterialEndDate(e.target.value)} 
+                  title="End Date"
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text)',
+                    fontSize: '0.85rem',
+                    height: '34px'
+                  }} 
+                />
+              </div>
+
+              <div className="action-toolbar-buttons">
+                <button 
+                  className={`btn btn-secondary ${isMaterialFiltered ? 'btn-filter-active' : ''}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  onClick={() => setShowMaterialFilterModal(true)}
+                >
+                  <Filter size={14} /> Filter
+                  {isMaterialFiltered && <span className="filter-badge-dot" />}
+                </button>
+                {isMaterialFiltered && (
+                  <button 
+                    className="btn btn-secondary text-danger" 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                    onClick={() => {
+                      setMaterialStartDate('');
+                      setMaterialEndDate('');
+                    }}
+                    title="Reset All Material & Misc Filters"
+                  >
+                    <RotateCcw size={13} /> Reset
+                  </button>
+                )}
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                  onClick={() => {
+                    const exportData = filteredMaterialLogs.map(log => {
+                      const qty = log.quantity || 1;
+                      const rate = log.distributionRate || log.cost;
+                      const total = log.cost || (qty * rate);
+                      return {
+                        'Log ID': log.id || log._id,
+                        'Material / Item': log.name,
+                        'Batch(es)': log.batchesConsumed || 'Batch 1',
+                        'Purchase Rate': log.purchaseRateInfo || 'N/A',
+                        'Purchase Cost (₹)': log.purchaseCost || 0,
+                        'Quantity Distributed': qty,
+                        'Unit': log.unit || 'Units',
+                        'Distribution Rate (₹)': rate,
+                        'Total Amount (₹)': total,
+                        'Date of Distribution': formatDate(log.date)
+                      };
+                    });
+                    let sheetName = `${project.name}_Material_Usage`;
+                    if (materialStartDate || materialEndDate) {
+                      sheetName += `_${materialStartDate || 'start'}_to_${materialEndDate || 'end'}`;
+                    }
+                    exportToExcel(exportData, sheetName);
+                  }}
+                >
+                  <Download size={14} /> Export Excel
+                </button>
+              </div>
             </div>
           </div>
+
+          <FilterModal
+            isOpen={showMaterialFilterModal}
+            onClose={() => setShowMaterialFilterModal(false)}
+            onReset={() => {
+              setMaterialStartDate('');
+              setMaterialEndDate('');
+            }}
+            title="Filter Material & Misc Logs"
+          >
+            <div className="form-group">
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Date Interval</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={materialStartDate} 
+                    onChange={e => setMaterialStartDate(e.target.value)} 
+                    style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>End Date</label>
+                  <input 
+                    type="date" 
+                    value={materialEndDate} 
+                    min={materialStartDate || undefined}
+                    onChange={e => setMaterialEndDate(e.target.value)} 
+                    style={{ width: '100%', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    setMaterialStartDate(today);
+                    setMaterialEndDate(today);
+                  }}
+                >
+                  Today
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => {
+                    const now = new Date();
+                    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                    setMaterialStartDate(firstDay);
+                    setMaterialEndDate(lastDay);
+                  }}
+                >
+                  This Month
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => {
+                    const now = new Date();
+                    const past30 = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+                    const today = new Date().toISOString().split('T')[0];
+                    setMaterialStartDate(past30);
+                    setMaterialEndDate(today);
+                  }}
+                >
+                  Last 30 Days
+                </button>
+                {(materialStartDate || materialEndDate) && (
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary text-danger"
+                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                    onClick={() => {
+                      setMaterialStartDate('');
+                      setMaterialEndDate('');
+                    }}
+                  >
+                    Clear Dates
+                  </button>
+                )}
+              </div>
+            </div>
+          </FilterModal>
+
+          {/* Material & Misc Summary Mini Table when Filtered */}
+          {filteredMaterialLogs.length > 0 && isMaterialFiltered && (() => {
+            const totalCost = filteredMaterialLogs.reduce((s, l) => s + (l.cost || 0), 0);
+            const totalPurchaseCost = filteredMaterialLogs.reduce((s, l) => s + (l.purchaseCost || 0), 0);
+            const uniqueItems = new Set(filteredMaterialLogs.map(l => l.name)).size;
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem', padding: '1rem', backgroundColor: 'var(--color-bg-base)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                {[
+                  ['Filtered Records', filteredMaterialLogs.length, '#6366f1'],
+                  ['Unique Items', uniqueItems, '#8b5cf6'],
+                  ['Total Purchase Cost', formatRupee(totalPurchaseCost), '#f59e0b'],
+                  ['Total Distributed Cost', formatRupee(totalCost), '#ef4444']
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '0.6rem 0.5rem', backgroundColor: 'var(--color-bg-surface)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '4px' }}>{label}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           <div className="table-container">
             <table>
               <thead>
@@ -570,7 +912,7 @@ const ProjectDetails = () => {
                     </tr>
                   );
                 })}
-                {filteredMaterialLogs.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>No materials found matching search query.</td></tr>}
+                {filteredMaterialLogs.length === 0 && <tr><td colSpan="11" style={{ textAlign: 'center', padding: '1rem' }}>No materials or miscellaneous items found matching the selected filters.</td></tr>}
               </tbody>
             </table>
           </div>
