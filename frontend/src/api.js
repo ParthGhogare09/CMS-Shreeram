@@ -5,7 +5,7 @@ const API = axios.create({
   baseURL: typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:5000/api'
     : 'https://cms-shreeram.onrender.com/api',
-  timeout: 4000
+  timeout: 15000
 });
 
 export const getDashboardStats = () => API.get('/dashboard');
