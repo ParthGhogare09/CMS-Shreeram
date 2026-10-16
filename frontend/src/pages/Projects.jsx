@@ -1,5 +1,5 @@
 // Basic demo command
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Trash2, Edit, Download, Filter, RotateCcw, Briefcase, CheckCircle, IndianRupee, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -28,6 +28,29 @@ const Projects = () => {
   const [projectSearch, setProjectSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showFilterModal, setShowFilterModal] = useState(false);
+
+  // ─── Date Filter ─────────────────────────────────────────────────────────────
+  const [dateFilterMode, setDateFilterMode] = useState('single');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+
+  const isDateFiltered = useMemo(() => {
+    return (
+      (dateFilterMode === 'single' && filterDate !== '') ||
+      (dateFilterMode === 'month' && filterMonth !== '') ||
+      (dateFilterMode === 'range' && (filterStartDate !== '' || filterEndDate !== ''))
+    );
+  }, [dateFilterMode, filterDate, filterMonth, filterStartDate, filterEndDate]);
+
+  const resetDateFilter = () => {
+    setFilterDate('');
+    setFilterMonth('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setDateFilterMode('single');
+  };
 
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -299,12 +322,30 @@ const Projects = () => {
     return <SkeletonLoader type="table" rows={6} />;
   }
 
-  const filteredProjects = projects.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(projectSearch.toLowerCase()) || 
-                          p.client.toLowerCase().includes(projectSearch.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredProjects = useMemo(() => {
+    return projects.filter(p => {
+      const matchesSearch =
+        p.name.toLowerCase().includes(projectSearch.toLowerCase()) ||
+        p.client.toLowerCase().includes(projectSearch.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
+
+      let matchesDate = true;
+      if (isDateFiltered) {
+        const projDate = p.startDate ? p.startDate.substring(0, 10) : '';
+        if (dateFilterMode === 'single') {
+          matchesDate = filterDate === '' || projDate === filterDate;
+        } else if (dateFilterMode === 'month') {
+          matchesDate = filterMonth === '' || projDate.substring(0, 7) === filterMonth;
+        } else {
+          const afterStart = filterStartDate === '' || projDate >= filterStartDate;
+          const beforeEnd  = filterEndDate   === '' || projDate <= filterEndDate;
+          matchesDate = afterStart && beforeEnd;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  }, [projects, projectSearch, statusFilter, isDateFiltered, dateFilterMode, filterDate, filterMonth, filterStartDate, filterEndDate]);
 
   return (
     <div className="projects-container">
@@ -382,6 +423,78 @@ const Projects = () => {
                 suggestions={projects.map(p => p.name)}
               />
             </div>
+
+            {/* ── Date Filter ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <select
+                value={dateFilterMode}
+                onChange={e => { setDateFilterMode(e.target.value); setFilterDate(''); setFilterMonth(''); setFilterStartDate(''); setFilterEndDate(''); }}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.85rem',
+                  height: '34px',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="single">Single Date</option>
+                <option value="month">By Month</option>
+                <option value="range">Date Range</option>
+              </select>
+
+              {dateFilterMode === 'single' && (
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }}
+                />
+              )}
+
+              {dateFilterMode === 'month' && (
+                <input
+                  type="month"
+                  value={filterMonth}
+                  onChange={e => setFilterMonth(e.target.value)}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }}
+                />
+              )}
+
+              {dateFilterMode === 'range' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={e => setFilterStartDate(e.target.value)}
+                    placeholder="Start Date"
+                    style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }}
+                  />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>to</span>
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={e => setFilterEndDate(e.target.value)}
+                    placeholder="End Date"
+                    style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }}
+                  />
+                </div>
+              )}
+
+              {isDateFiltered && (
+                <button
+                  className="btn btn-secondary text-danger"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={resetDateFilter}
+                  title="Clear date filter"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+            </div>
+
             <div className="action-toolbar-buttons">
               <button 
                 className={`btn btn-secondary ${statusFilter !== 'All' ? 'btn-filter-active' : ''}`} 
@@ -516,7 +629,9 @@ const Projects = () => {
                 );
               })}
               {filteredProjects.length === 0 && (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>No projects found matching search query.</td></tr>
+                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>
+                  {isDateFiltered ? 'No projects match the selected date filter.' : 'No projects found matching search query.'}
+                </td></tr>
               )}
             </tbody>
           </table>

@@ -1,6 +1,6 @@
 // Basic demo command
-import React, { useState } from 'react';
-import { Users, Plus, Trash2, Edit, Save, X, Eye, EyeOff, ShieldCheck, KeyRound, Smartphone, Monitor, Globe, Activity, LogOut, History } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Users, Plus, Trash2, Edit, Save, X, Eye, EyeOff, ShieldCheck, KeyRound, Smartphone, Monitor, Globe, Activity, LogOut, History, RotateCcw } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
 
 const Settings = () => {
@@ -22,6 +22,45 @@ const Settings = () => {
   const [deleteIdx, setDeleteIdx] = useState(null);
 
   const [globalMsg, setGlobalMsg] = useState('');
+
+  // ─── Session History Date Filter ─────────────────────────────────────────────
+  const [historyFilterMode, setHistoryFilterMode] = useState('single');
+  const [historyFilterDate, setHistoryFilterDate] = useState('');
+  const [historyFilterMonth, setHistoryFilterMonth] = useState('');
+  const [historyFilterStart, setHistoryFilterStart] = useState('');
+  const [historyFilterEnd, setHistoryFilterEnd] = useState('');
+
+  const isHistoryFiltered = useMemo(() => {
+    return (
+      (historyFilterMode === 'single' && historyFilterDate !== '') ||
+      (historyFilterMode === 'month' && historyFilterMonth !== '') ||
+      (historyFilterMode === 'range' && (historyFilterStart !== '' || historyFilterEnd !== ''))
+    );
+  }, [historyFilterMode, historyFilterDate, historyFilterMonth, historyFilterStart, historyFilterEnd]);
+
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(sess => {
+      if (!isHistoryFiltered) return true;
+      const sessDate = sess.loginTime ? new Date(sess.loginTime).toISOString().substring(0, 10) : '';
+      if (historyFilterMode === 'single') {
+        return historyFilterDate === '' || sessDate === historyFilterDate;
+      } else if (historyFilterMode === 'month') {
+        return historyFilterMonth === '' || sessDate.substring(0, 7) === historyFilterMonth;
+      } else {
+        const afterStart = historyFilterStart === '' || sessDate >= historyFilterStart;
+        const beforeEnd = historyFilterEnd === '' || sessDate <= historyFilterEnd;
+        return afterStart && beforeEnd;
+      }
+    });
+  }, [sessions, isHistoryFiltered, historyFilterMode, historyFilterDate, historyFilterMonth, historyFilterStart, historyFilterEnd]);
+
+  const resetHistoryFilter = () => {
+    setHistoryFilterDate('');
+    setHistoryFilterMonth('');
+    setHistoryFilterStart('');
+    setHistoryFilterEnd('');
+    setHistoryFilterMode('single');
+  };
 
   const flash = (setter, msg, ms = 2500) => {
     setter(msg);
@@ -300,31 +339,136 @@ const Settings = () => {
             </table>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <History size={20} color="var(--color-text-secondary)" />
-              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text)' }}>Device Login History</h3>
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem', marginBottom: '1.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={20} color="var(--color-text-secondary)" />
+                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text)' }}>Device Login History</h3>
+              </div>
+              <button
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.72rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  background: 'rgba(239,68,68,0.08)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.2)'
+                }}
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to clear all logged out history?")) {
+                    clearSessionHistoryAction();
+                  }
+                }}
+              >
+                <Trash2 size={12} /> Clear History
+              </button>
             </div>
-            <button
-              className="btn btn-secondary"
-              style={{
-                padding: '0.25rem 0.5rem',
-                fontSize: '0.72rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px',
-                background: 'rgba(239,68,68,0.08)',
-                color: '#ef4444',
-                border: '1px solid rgba(239,68,68,0.2)'
-              }}
-              onClick={() => {
-                if (window.confirm("Are you sure you want to clear all logged out history?")) {
-                  clearSessionHistoryAction();
-                }
-              }}
-            >
-              <Trash2 size={12} /> Clear History
-            </button>
+
+            {/* Date filter bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <select
+                value={historyFilterMode}
+                onChange={e => { setHistoryFilterMode(e.target.value); setHistoryFilterDate(''); setHistoryFilterMonth(''); setHistoryFilterStart(''); setHistoryFilterEnd(''); }}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  fontSize: '0.82rem',
+                  height: '32px',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="single">Single Date</option>
+                <option value="month">By Month</option>
+                <option value="range">Date Range</option>
+              </select>
+
+              {historyFilterMode === 'single' && (
+                <input
+                  type="date"
+                  value={historyFilterDate}
+                  onChange={e => setHistoryFilterDate(e.target.value)}
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-surface)',
+                    color: 'var(--color-text)',
+                    fontSize: '0.82rem',
+                    height: '32px'
+                  }}
+                />
+              )}
+
+              {historyFilterMode === 'month' && (
+                <input
+                  type="month"
+                  value={historyFilterMonth}
+                  onChange={e => setHistoryFilterMonth(e.target.value)}
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-surface)',
+                    color: 'var(--color-text)',
+                    fontSize: '0.82rem',
+                    height: '32px'
+                  }}
+                />
+              )}
+
+              {historyFilterMode === 'range' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="date"
+                    value={historyFilterStart}
+                    onChange={e => setHistoryFilterStart(e.target.value)}
+                    placeholder="Start Date"
+                    style={{
+                      padding: '0.35rem 0.5rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-surface)',
+                      color: 'var(--color-text)',
+                      fontSize: '0.82rem',
+                      height: '32px'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>to</span>
+                  <input
+                    type="date"
+                    value={historyFilterEnd}
+                    onChange={e => setHistoryFilterEnd(e.target.value)}
+                    placeholder="End Date"
+                    style={{
+                      padding: '0.35rem 0.5rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-surface)',
+                      color: 'var(--color-text)',
+                      fontSize: '0.82rem',
+                      height: '32px'
+                    }}
+                  />
+                </div>
+              )}
+
+              {isHistoryFiltered && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', padding: '0.3rem 0.6rem', height: '32px' }}
+                  onClick={resetHistoryFilter}
+                  title="Reset date filter"
+                >
+                  <RotateCcw size={12} /> Reset
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -341,14 +485,14 @@ const Settings = () => {
                 </tr>
               </thead>
               <tbody>
-                {sessions.length === 0 ? (
+                {filteredSessions.length === 0 ? (
                   <tr>
                     <td colSpan="7" style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                      No session history found.
+                      {isHistoryFiltered ? 'No sessions match the selected date filter.' : 'No session history found.'}
                     </td>
                   </tr>
                 ) : (
-                  sessions.slice(0, 15).map((sess) => (
+                  filteredSessions.slice(0, 15).map((sess) => (
                     <tr key={sess.id || sess._id} style={{ borderBottom: '1px dashed var(--color-border)' }}>
                       <td style={{ padding: '0.5rem', color: 'var(--color-text)' }}>{sess.displayName}</td>
                       <td style={{ padding: '0.5rem', color: 'var(--color-text-secondary)' }}>{sess.device}</td>
