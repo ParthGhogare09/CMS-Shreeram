@@ -56,6 +56,22 @@ const formatDaysLabel = (wt) => {
 
 const Workers = () => {
   const [activeTab, setActiveTab] = useState('master');
+
+  // Normalize any date value (ISO string, Date object, or plain YYYY-MM-DD) to YYYY-MM-DD
+  const normalizeDateStr = (dateVal) => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      if (dateVal.includes('T')) return dateVal.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return dateVal;
+      try {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      } catch { return dateVal; }
+    } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+      return dateVal.toISOString().split('T')[0];
+    }
+    return String(dateVal);
+  };
   
   const {
     workers,
@@ -125,6 +141,20 @@ const Workers = () => {
   const [projectSearch, setProjectSearch] = useState('');
   const [summarySearch, setSummarySearch] = useState('');
 
+  // Worker Lookup date filter
+  const [lookupFilterMode, setLookupFilterMode] = useState('single');
+  const [lookupFilterDate, setLookupFilterDate] = useState('');
+  const [lookupFilterMonth, setLookupFilterMonth] = useState('');
+  const [lookupFilterStart, setLookupFilterStart] = useState('');
+  const [lookupFilterEnd, setLookupFilterEnd] = useState('');
+
+  // Project Filter date filter
+  const [projFilterMode, setProjFilterMode] = useState('single');
+  const [projFilterDate, setProjFilterDate] = useState('');
+  const [projFilterMonth, setProjFilterMonth] = useState('');
+  const [projFilterStart, setProjFilterStart] = useState('');
+  const [projFilterEnd, setProjFilterEnd] = useState('');
+
   // Summary Stats
   const stats = useMemo(() => {
     const totalWorkers = workers.length;
@@ -148,14 +178,15 @@ const Workers = () => {
 
   const filteredDailyLogs = useMemo(() => {
     return dailyLogs.filter(log => {
+      const logDate = normalizeDateStr(log.date);
       let matchesDate = true;
       if (filterMode === 'single') {
-        matchesDate = filterDate === '' || log.date === filterDate;
+        matchesDate = filterDate === '' || logDate === filterDate;
       } else if (filterMode === 'month') {
-        matchesDate = filterMonth === '' || (log.date && log.date.substring(0, 7) === filterMonth);
+        matchesDate = filterMonth === '' || logDate.substring(0, 7) === filterMonth;
       } else if (filterMode === 'range') {
-        const matchesStart = filterStartDate === '' || log.date >= filterStartDate;
-        const matchesEnd = filterEndDate === '' || log.date <= filterEndDate;
+        const matchesStart = filterStartDate === '' || logDate >= filterStartDate;
+        const matchesEnd = filterEndDate === '' || logDate <= filterEndDate;
         matchesDate = matchesStart && matchesEnd;
       }
 
@@ -968,7 +999,27 @@ const Workers = () => {
 
     const activeWorkerObj = selectedWorker ? workers.find(w => (w.id || w._id || '').toString() === (selectedWorker.id || selectedWorker._id || '').toString()) : null;
 
-    const workerLogs = activeWorkerObj ? dailyLogs.filter(l => (l.workerId || '').toString() === (activeWorkerObj.id || activeWorkerObj._id || '').toString()) : [];
+    const allWorkerLogs = activeWorkerObj ? dailyLogs.filter(l => (l.workerId || '').toString() === (activeWorkerObj.id || activeWorkerObj._id || '').toString()) : [];
+
+    // Date filter for Work History
+    const isLookupDateFiltered =
+      (lookupFilterMode === 'single' && lookupFilterDate !== '') ||
+      (lookupFilterMode === 'month' && lookupFilterMonth !== '') ||
+      (lookupFilterMode === 'range' && (lookupFilterStart !== '' || lookupFilterEnd !== ''));
+
+    const workerLogs = isLookupDateFiltered
+      ? allWorkerLogs.filter(l => {
+          const d = normalizeDateStr(l.date);
+          if (lookupFilterMode === 'single') return lookupFilterDate === '' || d === lookupFilterDate;
+          if (lookupFilterMode === 'month') return lookupFilterMonth === '' || d.substring(0, 7) === lookupFilterMonth;
+          const ok1 = lookupFilterStart === '' || d >= lookupFilterStart;
+          const ok2 = lookupFilterEnd === '' || d <= lookupFilterEnd;
+          return ok1 && ok2;
+        })
+      : allWorkerLogs;
+
+    const resetLookupFilter = () => { setLookupFilterDate(''); setLookupFilterMonth(''); setLookupFilterStart(''); setLookupFilterEnd(''); setLookupFilterMode('single'); };
+
     const totalDays = workerLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
     const totalEarnings = workerLogs.reduce((sum, l) => sum + l.wage, 0);
     const wagePaid = workerLogs.reduce((sum, l) => sum + getAmountPaid(l), 0);
@@ -1092,9 +1143,9 @@ const Workers = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 className="card-title" style={{ fontSize: '1rem', margin: 0 }}>Work History</h3>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 {remainingWage > 0 && (
                   <button 
                     className="btn btn-primary"
@@ -1127,7 +1178,6 @@ const Workers = () => {
                       'Pending (₹)': getAmountPending(log),
                       'Status': log.paymentStatus
                     }));
-                    // Append a summary row at the bottom
                     exportData.push({
                       'Date': 'TOTAL SUMMARY',
                       'Worker Name': `ID: ${formatWorkerId(activeWorkerObj.id || activeWorkerObj._id)}`,
@@ -1144,6 +1194,45 @@ const Workers = () => {
                   <Download size={14} /> Export Report
                 </button>
               </div>
+            </div>
+
+            {/* Date filter for Work History */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+              <select
+                value={lookupFilterMode}
+                onChange={e => { setLookupFilterMode(e.target.value); setLookupFilterDate(''); setLookupFilterMonth(''); setLookupFilterStart(''); setLookupFilterEnd(''); }}
+                style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px', cursor: 'pointer' }}
+              >
+                <option value="single">Single Date</option>
+                <option value="month">By Month</option>
+                <option value="range">Date Range</option>
+              </select>
+
+              {lookupFilterMode === 'single' && (
+                <input type="date" value={lookupFilterDate} onChange={e => setLookupFilterDate(e.target.value)}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+              )}
+              {lookupFilterMode === 'month' && (
+                <input type="month" value={lookupFilterMonth} onChange={e => setLookupFilterMonth(e.target.value)}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+              )}
+              {lookupFilterMode === 'range' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input type="date" value={lookupFilterStart} onChange={e => setLookupFilterStart(e.target.value)} placeholder="Start Date"
+                    style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>to</span>
+                  <input type="date" value={lookupFilterEnd} onChange={e => setLookupFilterEnd(e.target.value)} placeholder="End Date"
+                    style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+                </div>
+              )}
+              {isLookupDateFiltered && (
+                <button className="btn btn-secondary text-danger"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={resetLookupFilter} title="Clear date filter"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
             </div>
             <div className="table-container">
               <table>
@@ -1185,7 +1274,9 @@ const Workers = () => {
                   ))}
                   {workerLogs.length === 0 && (
                     <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>No history found.</td>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>
+                        {isLookupDateFiltered ? 'No history matches the selected date filter.' : 'No history found.'}
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -1200,11 +1291,29 @@ const Workers = () => {
   // Tab 4: Project Filter
   const renderProjectFilter = () => {
     const selectedProj = projects.find(p => p.name === project);
+
+    // Date filter for Project Labour table
+    const isProjDateFiltered =
+      (projFilterMode === 'single' && projFilterDate !== '') ||
+      (projFilterMode === 'month' && projFilterMonth !== '') ||
+      (projFilterMode === 'range' && (projFilterStart !== '' || projFilterEnd !== ''));
+
+    const resetProjFilter = () => { setProjFilterDate(''); setProjFilterMonth(''); setProjFilterStart(''); setProjFilterEnd(''); setProjFilterMode('single'); };
+
     const projectLogs = project 
-      ? dailyLogs.filter(l => 
-          l.project === project && 
-          (projectSearch === '' || l.name.toLowerCase().includes(projectSearch.toLowerCase()))
-        ) 
+      ? dailyLogs.filter(l => {
+          if (l.project !== project) return false;
+          if (projectSearch !== '' && !l.name.toLowerCase().includes(projectSearch.toLowerCase())) return false;
+          if (isProjDateFiltered) {
+            const d = normalizeDateStr(l.date);
+            if (projFilterMode === 'single') return projFilterDate === '' || d === projFilterDate;
+            if (projFilterMode === 'month') return projFilterMonth === '' || d.substring(0, 7) === projFilterMonth;
+            const ok1 = projFilterStart === '' || d >= projFilterStart;
+            const ok2 = projFilterEnd === '' || d <= projFilterEnd;
+            return ok1 && ok2;
+          }
+          return true;
+        })
       : [];
     
     const totalDays = projectLogs.filter(l => l.status === 'Present').reduce((sum, l) => sum + parseDaysNum(l.workTime), 0);
@@ -1235,6 +1344,47 @@ const Workers = () => {
               />
             </div>
           )}
+
+          {/* Date filter for project logs */}
+          {project && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <select
+                value={projFilterMode}
+                onChange={e => { setProjFilterMode(e.target.value); setProjFilterDate(''); setProjFilterMonth(''); setProjFilterStart(''); setProjFilterEnd(''); }}
+                style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px', cursor: 'pointer' }}
+              >
+                <option value="single">Single Date</option>
+                <option value="month">By Month</option>
+                <option value="range">Date Range</option>
+              </select>
+              {projFilterMode === 'single' && (
+                <input type="date" value={projFilterDate} onChange={e => setProjFilterDate(e.target.value)}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+              )}
+              {projFilterMode === 'month' && (
+                <input type="month" value={projFilterMonth} onChange={e => setProjFilterMonth(e.target.value)}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+              )}
+              {projFilterMode === 'range' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input type="date" value={projFilterStart} onChange={e => setProjFilterStart(e.target.value)} placeholder="Start Date"
+                    style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>to</span>
+                  <input type="date" value={projFilterEnd} onChange={e => setProjFilterEnd(e.target.value)} placeholder="End Date"
+                    style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: '0.85rem', height: '34px' }} />
+                </div>
+              )}
+              {isProjDateFiltered && (
+                <button className="btn btn-secondary text-danger"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '0.45rem 0.65rem' }}
+                  onClick={resetProjFilter} title="Clear date filter"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
+              )}
+            </div>
+          )}
+
           {project && projectLogs.length > 0 && (
             <button
               className="btn btn-secondary"
@@ -1349,7 +1499,9 @@ const Workers = () => {
                   ))}
                   {projectLogs.length === 0 && (
                     <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>No logs for this project.</td>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '1rem' }}>
+                        {isProjDateFiltered ? 'No logs match the selected date filter.' : 'No logs for this project.'}
+                      </td>
                     </tr>
                   )}
                 </tbody>
